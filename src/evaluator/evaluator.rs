@@ -1,9 +1,8 @@
-use std::{process::Stdio, str::FromStr, sync::Arc};
+use std::{error, fmt, os::unix::process::ExitStatusExt, process::Stdio, str::FromStr, sync::Arc};
 
 use tracing::{info, debug, warn, error};
-use tokio::{io::{AsyncBufReadExt, BufReader}, process::{Child, Command}, sync::Mutex};
+use tokio::{io::{AsyncBufReadExt, BufReader}, process::{Child, Command}, sync::Mutex, time::Instant};
 
-use serde::{Deserialize, Serialize};
 
 use crate::parser;
 
@@ -19,6 +18,36 @@ pub struct Evaluator {
     data: Option<Arc<EvaluatorData>>,
 }
 
+pub struct EvalResult {
+    pub started_at: Instant,
+    pub finished_at: Instant,
+}
+
+#[derive(Debug)]
+pub struct EvalError {
+    error: String,
+}
+
+impl EvalError {
+    pub fn new(error: String) -> Self {
+        EvalError { error }
+    }
+
+    pub fn from_str(error: &str) -> Self {
+        EvalError { error: String::from_str(error).unwrap() }
+    }
+}
+
+impl fmt::Display for EvalError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+
+impl error::Error for EvalError {
+    
+}
+
 impl Evaluator {
     pub fn new(flake: &str, attribute: &str) -> Self {
         return Evaluator {
@@ -28,7 +57,7 @@ impl Evaluator {
         }
     }
 
-    pub async fn start(&mut self) {
+    pub async fn start(&mut self) -> Result<EvalResult, EvalError> {
         let mut process = Command::new("nix");
 
         let process = process
@@ -42,8 +71,10 @@ impl Evaluator {
 
         let process = match process.spawn() {
             Ok(value) => value,
-            Err(e) => { error!("Failed to spawn nix build: {}", e); return;},
+            Err(e) => { return Err(EvalError::new(format!("Failed to spawn nix build: {}", e)));},
         };
+
+        let started_at = Instant::now();
 
         self.data = Some(Arc::new(EvaluatorData { is_running: (Mutex::new(true)), eval_process: (Mutex::new(process)) }));
 
@@ -56,9 +87,7 @@ impl Evaluator {
            {
                let mut running = thread_data.as_ref().unwrap().is_running.lock().await;
                *running = false;
-           }
-           
-           debug!("nix build process was: {}", status);
+           }           
         });
 
         let mut parser = parser::ActivityParser::new();
@@ -67,6 +96,22 @@ impl Evaluator {
             parser.parse_next(line);
         }
 
-        return;
+        let finished_at = Instant::now();
+
+        let status = self.data.as_ref().unwrap().eval_process.lock().await.wait().await.unwrap();
+
+        if status.success() {
+            info!("Nix build exited successfully");
+        } else if status.core_dumped() {
+            return Err(EvalError::from_str("Nix build was core dumped!"));
+        } else if status.signal().is_some(){
+            return Err(EvalError::new(format!("Nix build was killed by a signal: {}", status.signal().unwrap())));
+        } else {
+            return Err(EvalError::new(format!("Nix build did not exit successfully: {}", status.code().unwrap())));
+        };
+
+        return Ok({
+            EvalResult { started_at, finished_at }
+        });
     }
 }

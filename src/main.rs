@@ -30,8 +30,17 @@ async fn main() {
         // "git+https://git.ole.blue/ole/nix-config",
         "path:///home/ole/nixos",
         // "hydraJobs"
-        r#"nixosConfigurations."kartoffelkiste".config.system.build.toplevel"#
+        r#"nixosConfigurations."main".config.system.build.toplevel"#
     );
 
-    eval.start().await;
+    let result = eval.start().await;
+
+    if result.is_ok() {
+        let result = result.unwrap();
+        let duration = result.finished_at.duration_since(result.started_at);
+        info!("Successfully built in {} seconds", duration.as_secs());
+    } else {
+        let error = result.err().unwrap();
+        error!("Evaluation failed because: {}", error)
+    }
 }
