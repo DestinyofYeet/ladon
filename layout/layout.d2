@@ -1,0 +1,28 @@
+vars: {
+	d2-config: {
+		layout-engine: elk
+		theme-id: 200
+		center: true
+		sketch: true
+	}
+}
+
+user
+
+repo
+
+hydra {
+	webinterface
+
+	api
+
+	evaluator
+}
+
+hydra.api -> repo: Fetches repository periodically
+
+repo -> hydra.api: (Gitea/Github/etc) Notify that repo updated
+
+user -> hydra.webinterface: Configures repository
+
+hydra.api -> hydra.evaluator: Triggers evaluator to run
