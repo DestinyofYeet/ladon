@@ -6,9 +6,9 @@ mod evaluator;
 #[tokio::main]
 async fn main() {
     let mut eval = Evaluator::new(
-        "/home/ole/nixos",
+        "git+https://git.ole.blue/ole/nix-config",
         // "hydraJobs"
-        r#"nixosConfigurations."main".config.system.build.toplevel"#
+        r#"nixosConfigurations."nix-server".config.system.build.toplevel"#
     );
 
     eval.start().await;

@@ -37,11 +37,15 @@ struct EvalMessageMsg {
     msg: String,
 }
 
+struct EvaluatorData {
+    is_running: Mutex<bool>,
+    eval_process: Mutex<Child>,
+}
+
 pub struct Evaluator {
     flake_path: String,
     flake_attribute: String,
-    running: Arc<Mutex<bool>>,
-    process: Option<Arc<Mutex<Child>>>,
+    data: Option<Arc<EvaluatorData>>,
 }
 
 impl Evaluator {
@@ -49,8 +53,7 @@ impl Evaluator {
         return Evaluator {
             flake_path: String::from_str(flake).unwrap(),
             flake_attribute: String::from_str(attribute).unwrap(),
-            running: Arc::new(Mutex::new(true)),
-            process: None,
+            data: None,
         }
     }
 
@@ -58,27 +61,28 @@ impl Evaluator {
         let mut process = Command::new("nix");
 
         let process = process
-            .arg("eval")
+            .arg("build")
             .arg(self.flake_path.clone() + "#" + &self.flake_attribute)
             .arg("--log-format")
             .arg("internal-json")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        self.process = match process.spawn() {
-            Ok(value) => Some(Arc::new(Mutex::new(value))),
+        let process = match process.spawn() {
+            Ok(value) => value,
             Err(e) => { eprintln!("Failed to spawn nix build: {}", e); return;},
         };
 
-        let thread_running = self.running.clone();
-        let thread_process = self.process.clone();
+        self.data = Some(Arc::new(EvaluatorData { is_running: (Mutex::new(true)), eval_process: (Mutex::new(process)) }));
 
-        let mut reader = BufReader::new(self.process.as_ref().unwrap().lock().await.stderr.take().unwrap()).lines();
+        let mut reader = BufReader::new(self.data.as_ref().unwrap().eval_process.lock().await.stderr.take().unwrap()).lines();
+
+        let thread_data = self.data.clone();
 
         tokio::spawn(async move {
-           let status = thread_process.unwrap().lock().await.wait().await.expect("nix build child failed to wait");
+           let status = thread_data.as_ref().unwrap().eval_process.lock().await.wait().await.expect("nix build child failed to wait");
            {
-               let mut running = thread_running.lock().await;
+               let mut running = thread_data.as_ref().unwrap().is_running.lock().await;
                *running = false;
            }
            
@@ -92,6 +96,7 @@ impl Evaluator {
             println!("line: {}", line);
             let parsed: serde_json::Value = serde_json::from_str(&line).unwrap();
 
+            // https://github.com/maralorn/nix-output-monitor/blob/main/lib/NOM/Parser/JSON.hs#L105
             match parsed.get("action").unwrap().as_str().unwrap() {
                 "start" => {
                     let start_msg: EvalMessageStart = serde_json::from_value(parsed).unwrap();
@@ -111,7 +116,7 @@ impl Evaluator {
                 _ => {
                     eprintln!("Failed to parse action: {}", parsed.get("action").unwrap());
                     dbg!(&parsed);
-                    let mut process = self.process.as_ref().unwrap().lock().await;
+                    let mut process = self.data.as_ref().unwrap().eval_process.lock().await;
 
                     match process.kill().await {
                         Ok(_) => println!("Killed nix build"),
