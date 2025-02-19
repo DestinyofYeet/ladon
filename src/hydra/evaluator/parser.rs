@@ -127,7 +127,7 @@ impl ActivityParser {
                     activity_type: ActivityType::parse(start_msg.activity_type as u64)
                 };
             
-                info!("[{}]{}> Started {:#?} activity: {}", dev.nth_activity, dev.name.as_ref().unwrap_or(&String::new()), dev.activity_type, start_msg.text);
+                debug!("[{}]{}> Started {:#?} activity: {}", dev.nth_activity, dev.name.as_ref().unwrap_or(&String::new()), dev.activity_type, start_msg.text);
 
                 self.messages.push(dev);
             },
@@ -138,7 +138,7 @@ impl ActivityParser {
                 let activity = self.messages.iter_mut().filter(|entry| entry.build_id == stop_msg.id).last().expect("Failed to find running activity although stop was received");
 
                 activity.running = false;
-                info!("[{}]{}> Finished {:#?} activity", activity.nth_activity, activity.name.as_ref().unwrap_or(&String::new()), activity.activity_type);
+                debug!("[{}]{}> Finished {:#?} activity", activity.nth_activity, activity.name.as_ref().unwrap_or(&String::new()), activity.activity_type);
 
                 self.messages.retain(|entry| !(entry.build_id == stop_msg.id));
             },
@@ -197,7 +197,7 @@ impl ActivityParser {
             "msg" => {
                 // info!("{line}");
                 let msg_msg: EvalMessageMsg = serde_json::from_value(parsed).unwrap();
-                info!("[msg] {}", msg_msg.msg);
+                debug!("[msg] {}", msg_msg.msg);
             }
             _ => {
                 error!("Failed to parse action: {}", parsed.get("action").unwrap());

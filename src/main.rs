@@ -1,12 +1,17 @@
-use evaluator::evaluator::Evaluator;
+use std::path::PathBuf;
+
+use hydra::evaluator::EvalManager;
+use hydra::db::DB;
 use clap::Parser;
 use tracing_subscriber;
 use tracing::{Level, debug, warn, error, info};
 
+mod hydra;
+
 #[derive(Parser)]
 struct Args {
     #[arg(short, long="data-dir", help="The data directory to use")]
-    data_dir: String,
+    data_dir: PathBuf,
     
     #[arg(short='v', long, action = clap::ArgAction::Count, help="Sets the verbose level. More v's more output")]
     verbose: u8
@@ -25,22 +30,55 @@ async fn main() {
     };
 
     logger.init();
-    
-    let mut eval = Evaluator::new(
-        // "git+https://git.ole.blue/ole/nix-config",
-        "path:///home/ole/nixos",
-        // "hydraJobs"
-        r#"nixosConfigurations."main".config.system.build.toplevel"#
-    );
 
-    let result = eval.start().await;
+    // debug!("data_dir path is: {}", args.data_dir.to_str().unwrap());
 
-    if result.is_ok() {
-        let result = result.unwrap();
-        let duration = result.finished_at.duration_since(result.started_at);
-        info!("Successfully built in {} seconds", duration.as_secs());
-    } else {
-        let error = result.err().unwrap();
-        error!("Evaluation failed because: {}", error)
+    let path = args.data_dir.join("db.sqlite");
+
+    let db = DB::new(path.to_str().unwrap()).await;
+
+    if db.is_err() {
+        error!("Failed to create database: {}", db.err().unwrap());
+        return;
     }
+
+    let db = db.unwrap();
+
+    let mut eval_manager = EvalManager::new(db).await;
+
+    let schedule = [
+        ("path:///home/ole/nixos",r#"nixosConfigurations."main".config.system.build.toplevel"#),
+        ("path:///home/ole/nixos", r#"nixosConfigurations."wattson".config.system.build.toplevel"#),
+        ("path:///home/ole/nixos", r#"nixosConfigurations."teapot".config.system.build.toplevel"#),
+    ];
+
+    let mut handles = Vec::new();
+
+    for (key, value) in schedule {
+        let handle = eval_manager.schedule(
+            key,
+            value,
+        ).await.unwrap();
+
+        handles.push(handle);
+    };
+
+    for handle in handles {
+        info!("Waiting for id {handle}");
+        eval_manager.wait_handle(handle).await;
+    };
+    
+
+    // let result = eval_manager.wait_handle(handle).await;
+
+    // let result = result.lock().await;
+
+    // if result.is_ok() {
+    //     let result = result.as_ref().unwrap();
+    //     let duration = result.finished_at.duration_since(result.started_at);
+    //     info!("Successfully built in {} seconds", duration.as_secs());
+    // } else {
+    //     let error = result.as_ref().err().unwrap();
+    //     error!("Evaluation failed because: {}", error)
+    // }
 }

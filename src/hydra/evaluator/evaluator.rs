@@ -3,9 +3,7 @@ use std::{error, fmt, os::unix::process::ExitStatusExt, process::Stdio, str::Fro
 use tracing::{info, debug, warn, error};
 use tokio::{io::{AsyncBufReadExt, BufReader}, process::{Child, Command}, sync::Mutex, time::Instant};
 
-
-use crate::parser;
-
+use super::parser;
 
 struct EvaluatorData {
     is_running: Mutex<bool>,
@@ -18,6 +16,7 @@ pub struct Evaluator {
     data: Option<Arc<EvaluatorData>>,
 }
 
+#[derive(Debug)]
 pub struct EvalResult {
     pub started_at: Instant,
     pub finished_at: Instant,
@@ -58,6 +57,8 @@ impl Evaluator {
     }
 
     pub async fn start(&mut self) -> Result<EvalResult, EvalError> {
+        let flake_path = self.flake_path.clone() + "#" + &self.flake_attribute;
+        info!("Starting evaluation for: {}", flake_path);
         let mut process = Command::new("nix");
 
         let process = process
@@ -65,7 +66,7 @@ impl Evaluator {
             .arg("--log-format")
             .arg("internal-json")
             .arg("--no-link")
-            .arg(self.flake_path.clone() + "#" + &self.flake_attribute)
+            .arg(flake_path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
