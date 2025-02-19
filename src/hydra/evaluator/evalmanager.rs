@@ -2,18 +2,47 @@ use std::future::IntoFuture;
 use std::ops::Index;
 use std::sync::Arc;
 
+use chrono::Utc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::info;
+use tokio::time;
+use tracing::{debug, error, info};
 
-use super::super::db::DB;
+use super::super::db::{DB, DBBuilds};
 
 use super::evaluator::{EvalError, EvalResult, Evaluator};
 
 async fn wait_for_notification (mut notif_channel: Receiver<Notification>, db: DB){
         while let Some(notification) = notif_channel.recv().await {
-            info!("Received done notification for task {notification:?}");
+            let done = Utc::now();
+            info!("Received notification for task {}", notification.id);
+
+            let unwrapped = notification.eval_result.lock().await;
+
+            if unwrapped.is_ok() {
+                let unwrapped = unwrapped.as_ref().unwrap();
+                
+                let time_took = unwrapped.finished_at.duration_since(unwrapped.started_at);
+
+                let db_build = DBBuilds::new(
+                    unwrapped.flake.clone(),
+                    unwrapped.attribute.clone(),
+                    Some(done),
+                    true,
+                    Some(true),
+                    Some(time_took.as_secs()),
+                );
+
+                let error = db.insert_build(db_build).await;
+                if error.is_none(){
+                    info!("Inserted info for task {}", notification.id);
+                } else {
+                    error!("Failed to insert info for task {}: {}", notification.id, error.unwrap())
+                }
+            } else {
+                error!("Build for task {} failed", notification.id);
+            }
         }
 }
 
@@ -38,6 +67,7 @@ pub struct EvalManager {
     evals: Vec<EvalHandle>,
     eval_counter: usize,
     notification_channel: Arc<Sender<Notification>>,
+    notification_handle: JoinHandle<()>,
 }
 impl EvalManager {
     pub async fn new(db: DB) -> EvalManager {
@@ -46,11 +76,11 @@ impl EvalManager {
             evals: Vec::new(),
             eval_counter: 0,
             notification_channel: Arc::new(tx),
+            notification_handle: tokio::spawn(async move {
+                wait_for_notification(rx, db).await
+            }),
         };
 
-        tokio::spawn(async move {
-            wait_for_notification(rx, db).await
-        });
 
         manager
     }
@@ -95,5 +125,12 @@ impl EvalManager {
         let handle = self.get_join_handle(handle_id);
         let result = handle.await.await.unwrap();
         return result;
+    }
+
+    pub async fn shutdown(self){
+        let result = self.notification_handle.await;
+        if result.is_err() {
+            error!("Failed to wait on notification handle!");
+        }
     }
 }

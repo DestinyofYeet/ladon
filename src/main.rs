@@ -67,6 +67,8 @@ async fn main() {
         info!("Waiting for id {handle}");
         eval_manager.wait_handle(handle).await;
     };
+
+    eval_manager.shutdown().await;
     
 
     // let result = eval_manager.wait_handle(handle).await;

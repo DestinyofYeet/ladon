@@ -20,6 +20,8 @@ pub struct Evaluator {
 pub struct EvalResult {
     pub started_at: Instant,
     pub finished_at: Instant,
+    pub flake: String,
+    pub attribute: String,
 }
 
 #[derive(Debug)]
@@ -111,8 +113,11 @@ impl Evaluator {
             return Err(EvalError::new(format!("Nix build did not exit successfully: {}", status.code().unwrap())));
         };
 
+        let flake_path = self.flake_path.clone();
+        let attribute = self.flake_attribute.clone();
+
         return Ok({
-            EvalResult { started_at, finished_at }
+            EvalResult { started_at, finished_at, flake: flake_path, attribute}
         });
     }
 }

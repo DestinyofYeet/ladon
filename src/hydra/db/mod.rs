@@ -1,3 +1,3 @@
-pub use db::DB;
+pub use db::*;
 
 mod db;
