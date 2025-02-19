@@ -1,5 +1,4 @@
 # Hydra-rs
----
 
 This project is supposed to be an alternative to the official [Hydra Project](https://github.com/NixOS/hydra).
 
