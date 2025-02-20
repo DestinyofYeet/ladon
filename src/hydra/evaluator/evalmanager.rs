@@ -29,7 +29,7 @@ async fn wait_for_notification (mut notif_channel: Receiver<Notification>, db: D
                     unwrapped.flake.clone(),
                     unwrapped.attribute.clone(),
                     Some(done),
-                    true,
+                    false, // not running, cause it's done
                     Some(true),
                     Some(time_took.as_secs()),
                 );
