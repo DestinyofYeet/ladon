@@ -5,6 +5,8 @@ use tokio::{io::{AsyncBufReadExt, BufReader}, process::{Child, Command}, sync::M
 
 use super::parser;
 
+use super::parser::Activity;
+
 struct EvaluatorData {
     is_running: Mutex<bool>,
     eval_process: Mutex<Child>,
@@ -22,6 +24,8 @@ pub struct EvalResult {
     pub finished_at: Instant,
     pub flake: String,
     pub attribute: String,
+    pub activities: Vec<Activity>,
+    pub logs: String,
 }
 
 #[derive(Debug)]
@@ -116,8 +120,12 @@ impl Evaluator {
         let flake_path = self.flake_path.clone();
         let attribute = self.flake_attribute.clone();
 
+        let logs = parser.get_logs();
+
+        let activities: Vec<Activity> = parser.get_activities();
+
         return Ok({
-            EvalResult { started_at, finished_at, flake: flake_path, attribute}
+            EvalResult { started_at, finished_at, flake: flake_path, attribute, activities, logs}
         });
     }
 }

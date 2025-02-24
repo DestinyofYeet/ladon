@@ -9,7 +9,7 @@ use tokio::task::JoinHandle;
 use tokio::time;
 use tracing::{debug, error, info};
 
-use super::super::db::{DB, DBBuilds};
+use super::super::db::{DB, DBBuilds, DBDerivations};
 
 use super::evaluator::{EvalError, EvalResult, Evaluator};
 
@@ -20,28 +20,53 @@ async fn wait_for_notification (mut notif_channel: Receiver<Notification>, db: D
 
             let unwrapped = notification.eval_result.lock().await;
 
-            if unwrapped.is_ok() {
-                let unwrapped = unwrapped.as_ref().unwrap();
-                
-                let time_took = unwrapped.finished_at.duration_since(unwrapped.started_at);
+            if unwrapped.is_err() {
+                let err = unwrapped.as_ref().unwrap_err();
+                error!("Build for task {} failed: {}", notification.id, err);
+                continue;
+            }
 
-                let db_build = DBBuilds::new(
-                    unwrapped.flake.clone(),
-                    unwrapped.attribute.clone(),
-                    Some(done),
-                    false, // not running, cause it's done
-                    Some(true),
-                    Some(time_took.as_secs()),
+            let unwrapped = unwrapped.as_ref().unwrap();
+            
+            let time_took = unwrapped.finished_at.duration_since(unwrapped.started_at);
+
+            let activities = &unwrapped.activities;
+
+            let db_build = DBBuilds::new(
+                unwrapped.flake.clone(),
+                unwrapped.attribute.clone(),
+                Some(done),
+                false,
+                Some(true),
+                Some(time_took.as_secs()),
+                unwrapped.logs.clone(),
+            );
+
+            let build_id = db.insert_build(db_build).await;
+            if build_id.is_err(){
+                error!("Failed to insert info for task {}: {}", notification.id, build_id.err().unwrap());
+                continue;
+            }
+            info!("Inserted info for task {}", notification.id);
+            let build_id = build_id.unwrap();
+
+            info!("Found {} activites", activities.len());
+
+            for activity in activities {
+                let deriv = DBDerivations::new(
+                    build_id,
+                    activity.get_name(),
+                    activity.get_log(),
                 );
 
-                let error = db.insert_build(db_build).await;
-                if error.is_none(){
-                    info!("Inserted info for task {}", notification.id);
-                } else {
-                    error!("Failed to insert info for task {}: {}", notification.id, error.unwrap())
+                let result = db.insert_derivation(deriv).await;
+
+                if result.is_err() {
+                    error!("Failed to insert info for derivation {}: {}", activity.get_name(), result.err().unwrap());
+                    continue;
                 }
-            } else {
-                error!("Build for task {} failed", notification.id);
+
+                debug!("Successfully inserted info for derivation {}", activity.get_name());
             }
         }
 }

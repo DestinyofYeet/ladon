@@ -1,7 +1,7 @@
-use std::{process::Stdio, str::FromStr, sync::Arc};
+
+use std::str::FromStr;
 
 use tracing::{info, debug, warn, error};
-use tokio::{io::{AsyncBufReadExt, BufReader}, process::{Child, Command}, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -84,17 +84,39 @@ impl ActivityType {
 }
 
 
-struct Activity {
+#[derive(Debug)]
+pub struct Activity {
     name: Option<String>,
     build_id: u64,
     running: bool,
     nth_activity: i32,
     activity_type: ActivityType,
+    log_output: String,
+}
+
+impl Activity {
+    fn append_log(&mut self, content: &str){
+        self.log_output.push_str(content);
+    }
+
+    /// FIX: Find better way. Might be a potentially expensive clone idk
+    pub fn get_log(&self) -> String {
+        return self.log_output.clone();
+    }
+    
+    pub fn get_name(&self) -> String {
+        if self.name.is_some() {
+            return self.name.clone().unwrap();
+        }
+
+        return String::from_str("Unknown").unwrap();
+    }
 }
 
 pub struct ActivityParser {
     nth_message: i32,
     messages: Vec<Activity>,
+    general_message: String,
 }
 
 impl ActivityParser {
@@ -102,6 +124,7 @@ impl ActivityParser {
         Self {
           nth_message: 0,
           messages: Vec::new(),
+          general_message: String::new(),
         }
     }
     pub fn parse_next(&mut self, line: String){
@@ -119,13 +142,16 @@ impl ActivityParser {
 
                 let name: Option<String> = start_msg.fields.map(|field| field.get(0).unwrap().to_string());
             
-                let dev = Activity {
+                let mut dev = Activity {
                     name,
                     build_id: start_msg.id,
                     running: true,
                     nth_activity: self.nth_message,
-                    activity_type: ActivityType::parse(start_msg.activity_type as u64)
+                    activity_type: ActivityType::parse(start_msg.activity_type as u64),
+                    log_output: String::new(),
                 };
+
+                dev.append_log(&start_msg.text);
             
                 debug!("[{}]{}> Started {:#?} activity: {}", dev.nth_activity, dev.name.as_ref().unwrap_or(&String::new()), dev.activity_type, start_msg.text);
 
@@ -140,13 +166,13 @@ impl ActivityParser {
                 activity.running = false;
                 debug!("[{}]{}> Finished {:#?} activity", activity.nth_activity, activity.name.as_ref().unwrap_or(&String::new()), activity.activity_type);
 
-                self.messages.retain(|entry| !(entry.build_id == stop_msg.id));
+                // self.messages.retain(|entry| !(entry.build_id == stop_msg.id));
             },
 
             "result" => {
                 let result_msg: EvalMessageResult = serde_json::from_value(parsed).expect(&format!("Failed to parse to EvalMessageResult: {:#?}", line));
 
-                let activity = self.messages.iter().filter(|entry| entry.build_id == result_msg.id).last().expect("Failed to find running activity although result was received");
+                let activity = self.messages.iter_mut().filter(|entry| entry.build_id == result_msg.id).last().expect("Failed to find running activity although result was received");
 
                 match result_msg.result_type {
                     100 => {debug!("{line}");},
@@ -197,6 +223,7 @@ impl ActivityParser {
             "msg" => {
                 // info!("{line}");
                 let msg_msg: EvalMessageMsg = serde_json::from_value(parsed).unwrap();
+                self.general_message.push_str(&msg_msg.msg);
                 debug!("[msg] {}", msg_msg.msg);
             }
             _ => {
@@ -205,5 +232,13 @@ impl ActivityParser {
                 return;
             },
         }
+    }
+
+    pub fn get_activities(self) -> Vec<Activity> {
+        return self.messages
+    }
+
+    pub fn get_logs(&self) -> String {
+        return self.general_message.clone();
     }
 }
