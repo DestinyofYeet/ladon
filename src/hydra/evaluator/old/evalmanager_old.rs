@@ -13,7 +13,7 @@ use super::super::db::{DB, DBBuilds, DBDerivations};
 
 use super::evaluator::{EvalError, EvalResult, Evaluator};
 
-async fn wait_for_notification (mut notif_channel: Receiver<Notification>, db: DB){
+async fn wait_for_notification (mut notif_channel: Receiver<Notification>, db: Arc<Mutex<DB>>){
         while let Some(notification) = notif_channel.recv().await {
             let done = Utc::now();
             info!("Received notification for task {}", notification.id);
@@ -25,6 +25,8 @@ async fn wait_for_notification (mut notif_channel: Receiver<Notification>, db: D
                 error!("Build for task {} failed: {}", notification.id, err);
                 continue;
             }
+
+            let db = db.lock().await;
 
             let unwrapped = unwrapped.as_ref().unwrap();
             
@@ -93,19 +95,22 @@ pub struct EvalManager {
     eval_counter: usize,
     notification_channel: Arc<Sender<Notification>>,
     notification_handle: JoinHandle<()>,
+    db: Arc<Mutex<DB>>,
 }
 impl EvalManager {
     pub async fn new(db: DB) -> EvalManager {
         let (tx, rx) = mpsc::channel::<Notification>(1);
+        let new_db = Arc::new(Mutex::new(db));
+        let thread_db = new_db.clone();
         let manager = EvalManager {
             evals: Vec::new(),
             eval_counter: 0,
+            db: new_db,
             notification_channel: Arc::new(tx),
             notification_handle: tokio::spawn(async move {
-                wait_for_notification(rx, db).await
+                wait_for_notification(rx, thread_db).await
             }),
         };
-
 
         manager
     }

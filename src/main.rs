@@ -44,8 +44,8 @@ async fn main() {
 
     let db = db.unwrap();
 
-    let mut eval_manager = EvalManager::new(db).await;
-
+    // let mut eval_manager = EvalManager::new(db).await;
+    
     let schedule = [
         ("path:///home/ole/nixos",r#"nixosConfigurations."main".config.system.build.toplevel"#),
         ("path:///home/ole/nixos", r#"nixosConfigurations."wattson".config.system.build.toplevel"#),
@@ -54,21 +54,21 @@ async fn main() {
 
     let mut handles = Vec::new();
 
-    for (key, value) in schedule {
-        let handle = eval_manager.schedule(
-            key,
-            value,
-        ).await.unwrap();
+    // for (key, value) in schedule {
+    //     let handle = eval_manager.schedule(
+    //         key,
+    //         value,
+    //     ).await.unwrap();
 
-        handles.push(handle);
-    };
+    //     handles.push(handle);
+    // };
 
-    for handle in handles {
-        info!("Waiting for id {handle}");
-        eval_manager.wait_handle(handle).await;
-    };
+    // for handle in handles {
+    //     info!("Waiting for id {handle}");
+    //     eval_manager.wait_handle(handle).await;
+    // };
 
-    eval_manager.shutdown().await;
+    // eval_manager.shutdown().await;
     
 
     // let result = eval_manager.wait_handle(handle).await;

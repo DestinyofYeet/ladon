@@ -7,22 +7,19 @@ vars: {
 	}
 }
 
-user
+coordinator
 
-repo
+evaluator
 
-hydra {
-	webinterface
+builder
 
-	api
+input -> coordinator: Flake URI
 
-	evaluator
-}
+database
 
-hydra.api -> repo: Fetches repository periodically
-
-repo -> hydra.api: (Gitea/Github/etc) Notify that repo updated
-
-user -> hydra.webinterface: Configures repository
-
-hydra.api -> hydra.evaluator: Triggers evaluator to run
+coordinator -> evaluator: evaluates nix expression
+evaluator -> coordinator: returns result
+coordinator -> derivation: Converts the nix output paths to nix derivations
+derivation -> coordinator: returns result
+coordinator -> database: Stores derivation paths in database for `nix log` and for caching
+coordinator -> builder: realises / builds store path

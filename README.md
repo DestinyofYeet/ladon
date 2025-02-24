@@ -23,3 +23,14 @@ PS: Sorry for the Arc<Mutex<T>> hell
 # Todos
 - [ ] Fronted (Yew?)
 - [ ] Capture Derivation build output and store it in db
+
+## Idea
+
+1. Call `nix eval flakeUri --json` in order to get json output. For example:
+```bash
+nix eval nix eval /home/ole/nixos#hydraJobs --json
+```
+
+2. Call `nix derivation show /nix/store/...` on whatever store path(s) were printed out by `nix eval`. Parse the resulting json and get the .drv path from the json key.
+
+3. Call `nix-store --realise /nix/store/....drv` which actually builds the derivation
