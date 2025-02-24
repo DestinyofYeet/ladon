@@ -1,6 +1,7 @@
+use std::ffi::c_schar;
 use std::path::PathBuf;
 
-use hydra::evaluator::EvalManager;
+use hydra::evaluator::{Coordinator};
 use hydra::db::DB;
 use clap::Parser;
 use tracing_subscriber;
@@ -44,43 +45,20 @@ async fn main() {
 
     let db = db.unwrap();
 
-    // let mut eval_manager = EvalManager::new(db).await;
+    let mut coordinator = Coordinator::new();
     
-    let schedule = [
-        ("path:///home/ole/nixos",r#"nixosConfigurations."main".config.system.build.toplevel"#),
-        ("path:///home/ole/nixos", r#"nixosConfigurations."wattson".config.system.build.toplevel"#),
-        ("path:///home/ole/nixos", r#"nixosConfigurations."teapot".config.system.build.toplevel"#),
+    let schedule = vec![
+        // r#"path:///home/ole/nixos#nixosConfigurations."main".config.system.build.toplevel"#,
+        // r#"path:///home/ole/nixos#nixosConfigurations."wattson".config.system.build.toplevel"#,
+        // r#"path:///home/ole/nixos#nixosConfigurations."teapot".config.system.build.toplevel"#,
+        "path:///home/ole/nixos#hydraJobs",
+        "github:DestinyofYeet/add_replay_gain#hydraJobs"
     ];
 
-    let mut handles = Vec::new();
 
-    // for (key, value) in schedule {
-    //     let handle = eval_manager.schedule(
-    //         key,
-    //         value,
-    //     ).await.unwrap();
+    for uri in schedule.iter() {
+        coordinator.schedule(uri).await;
+    }
 
-    //     handles.push(handle);
-    // };
-
-    // for handle in handles {
-    //     info!("Waiting for id {handle}");
-    //     eval_manager.wait_handle(handle).await;
-    // };
-
-    // eval_manager.shutdown().await;
-    
-
-    // let result = eval_manager.wait_handle(handle).await;
-
-    // let result = result.lock().await;
-
-    // if result.is_ok() {
-    //     let result = result.as_ref().unwrap();
-    //     let duration = result.finished_at.duration_since(result.started_at);
-    //     info!("Successfully built in {} seconds", duration.as_secs());
-    // } else {
-    //     let error = result.as_ref().err().unwrap();
-    //     error!("Evaluation failed because: {}", error)
-    // }
+    coordinator.shutdown().await;
 }

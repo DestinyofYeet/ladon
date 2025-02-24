@@ -1,13 +1,17 @@
+use std::collections::HashMap;
 use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::{error, fmt, str::FromStr};
 
-use serde_json;
+use serde_json::{self, Value};
 use tokio::process::Child;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 use tokio::{process::Command, time::Instant};
 
 use tracing::info;
+
+use super::super::coordinator::{ActionHandle, Coordinator, EvalNotification, EvalNotificationSender};
 
 #[derive(Debug)]
 pub struct EvalError {
@@ -34,16 +38,12 @@ impl error::Error for EvalError {}
 
 struct ProcessData {
     done: bool,
-    handle: Child,
-    status: Option<Result<ExitStatus, std::io::Error>>,
 }
 
 impl ProcessData {
     fn new(done: bool, handle: Child) -> Self {
         ProcessData {
             done,
-            handle,
-            status: None,
         }
     }
 }
@@ -61,26 +61,23 @@ impl EvalResult {
 
 /// This will evaluate a nix expression and return a name and a nix output path.
 pub struct Eval<'a> {
-    flake: &'a str,
-    attribute: &'a str,
+    flake_uri: &'a str,
 }
 
 impl <'a> Eval<'a>{
-    pub fn new(flake: &'a str, attribute: &'a str) -> Self {
+    pub fn new(flake_uri: &'a str) -> Self {
         Eval {
-            flake,
-            attribute
+            flake_uri,
         }
     }
-
-    pub async fn start(&mut self) -> Result<EvalResult, EvalError>{
-        let uri = String::new() + self.flake + "#" + self.attribute;
-        info!("Evaluating {}", uri);
+    
+    pub async fn start(&mut self, sender: EvalNotificationSender, handle: usize) -> Result<JoinHandle<()>, EvalError> {
+        info!("Evaluating {}", self.flake_uri);
 
         let process = Command::new("nix")
             .arg("eval")
-            .arg(uri)
             .arg("--json")
+            .arg(self.flake_uri)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn();
@@ -94,25 +91,44 @@ impl <'a> Eval<'a>{
 
         let started = Instant::now();
 
-        let process_data = Arc::new(Mutex::new(ProcessData {
-            done: false,
-            handle: process,
-            status: None,
-        }));
-
-        let thread_p_data = process_data.clone();
-
-        tokio::spawn(async move {
-            // this might fuck me later
-            let status = thread_p_data.lock().await.handle.wait().await;
-            let mut data = thread_p_data.lock().await;
-            data.done = true;
-            data.status = Some(status);
+        let handle = tokio::spawn(async move {
+            let result = process.wait_with_output().await.unwrap();
+            let status = result.status;
+            let stdout = String::from_utf8(result.stdout).unwrap();
+            let stderr = String::from_utf8(result.stderr).unwrap();
+            _ = sender.send(EvalNotification::new(handle, stdout, stderr, status)).await;
         });
 
-        Ok(EvalResult {
-            data: process_data,
-            started,
-        })
+        Ok(handle)
+    }
+
+    pub fn get_paths_in_json(value: &Value) -> HashMap<String, String> {
+        let mut map = HashMap::new();
+        Eval::get_paths_recursive(&mut map, String::new(), value);
+        map
+    }
+
+    fn get_paths_recursive(map: &mut HashMap<String, String>, current_path: String, value: &Value) {
+        match value {
+            Value::Object(obj) => {
+                for (key, val) in obj {
+                    let new_path = if current_path.is_empty() {
+                        key.to_string()
+                    } else {
+                        format!("{}.{}", current_path, key)
+                    };
+                    Eval::get_paths_recursive(map, new_path, val);
+                }
+            }
+
+            _ => {
+                let val_str = match value {
+                    Value::String(s) => s.clone(),
+                    _ => { unreachable!()}
+                };
+
+                map.insert(current_path, val_str);
+            }
+        }
     }
 }
