@@ -1,7 +1,15 @@
 use core::fmt;
+use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use sqlx::{pool::PoolConnection, query, sqlite::SqlitePool, Sqlite};
+use sqlx::{
+    migrate::MigrateDatabase,
+    pool::PoolConnection,
+    query,
+    sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions},
+    Sqlite,
+};
+use tracing::info;
 
 fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
@@ -83,7 +91,14 @@ pub struct DB {
 
 impl DB {
     pub async fn new(path: &str) -> Result<Self, DBError> {
-        let pool = SqlitePool::connect(path).await;
+        let path = String::new() + "sqlite://" + path;
+        let opts = SqliteConnectOptions::from_str(&path)
+            .map_err(|e| DBError::new(e.to_string()))?
+            .create_if_missing(true)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
+
+        info!("Connecting to database: {}", path);
+        let pool = SqlitePool::connect_with(opts).await;
 
         let db = pool.map_err(|e| DBError::new(e.to_string()))?;
 

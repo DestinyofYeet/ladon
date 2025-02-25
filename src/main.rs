@@ -1,9 +1,10 @@
-use std::ffi::c_schar;
 use std::path::PathBuf;
+use std::{ffi::c_schar, path};
 
 use clap::Parser;
 use hydra::db::DB;
 use hydra::evaluator::Coordinator;
+use tokio::fs;
 use tracing::{debug, error, info, warn, Level};
 use tracing_subscriber;
 
@@ -34,9 +35,11 @@ async fn main() {
 
     // debug!("data_dir path is: {}", args.data_dir.to_str().unwrap());
 
-    let path = args.data_dir.join("db.sqlite");
+    let path = path::absolute(args.data_dir).unwrap();
 
-    let db = DB::new(path.to_str().unwrap()).await;
+    let full_path = path.join("db.sqlite");
+
+    let db = DB::new(full_path.to_str().unwrap()).await;
 
     if db.is_err() {
         error!("Failed to create database: {}", db.err().unwrap());
@@ -45,7 +48,7 @@ async fn main() {
 
     let db = db.unwrap();
 
-    let mut coordinator = Coordinator::new();
+    let mut coordinator = Coordinator::new(db);
 
     let schedule = vec![
         // r#"path:///home/ole/nixos#nixosConfigurations."main".config.system.build.toplevel"#,

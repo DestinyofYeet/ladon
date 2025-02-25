@@ -1,8 +1,8 @@
 use std::{process::ExitStatus, sync::Arc};
 
-use crate::db::DB;
-
 use super::nix::{derivation::DerivationInformation, store::Store};
+
+use super::super::db::DB;
 
 use super::nix::derivation::Derivation;
 use super::nix::eval::Eval;
@@ -189,7 +189,7 @@ impl Coordinator {
         let result = result.unwrap();
         let mut action = Action::new(action_id, flake_uri.to_string(), result);
 
-        action.set_state(ActionState::Evaluating);
+        action.set_state(ActionState::Evaluating, None);
 
         self.data.lock().await.actions.push(action);
 
@@ -223,7 +223,7 @@ impl Coordinator {
 
             if !notification.status.success() {
                 error!("Nix evaluation failed!\nStderr: {}", notification.stderr);
-                action.set_state(ActionState::Failed);
+                action.set_state(ActionState::Failed, None);
                 continue;
             }
 
@@ -231,7 +231,7 @@ impl Coordinator {
 
             let eval_information = Eval::get_paths_in_json(&result);
 
-            action.set_state(ActionState::Decoding);
+            action.set_state(ActionState::Decoding, None);
 
             let derivation = Derivation::new(eval_information);
 
@@ -258,7 +258,7 @@ impl Coordinator {
                 }
 
                 action.handle = result.unwrap();
-                action.set_state(ActionState::Building);
+                action.set_state(ActionState::Building, None);
             }
         }
     }
@@ -285,9 +285,9 @@ impl Coordinator {
                 .unwrap();
             trace!("Got action");
 
-            action.set_state(ActionState::Done);
+            action.set_state(ActionState::Done, None);
 
-            info!("Built {}", notification.derivation_information.name);
+            info!("Built {}", notification.derivation_information.obj_name);
         }
     }
 }

@@ -37,6 +37,7 @@ pub struct DerivationInformation {
     pub(crate) derivation_path: String,
     pub(crate) name: String,
     pub(crate) system: String,
+    pub(crate) obj_name: String,
 }
 
 pub struct Derivation {
@@ -124,6 +125,7 @@ impl Derivation {
             derivation_path: drv_path,
             name,
             system,
+            obj_name: information.name.clone(),
         })
     }
 
