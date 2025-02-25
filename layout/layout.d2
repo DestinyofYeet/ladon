@@ -7,19 +7,29 @@ vars: {
 	}
 }
 
-coordinator
+coordinator: Coordinator
+derivation-rs: Derivation: Converts nix outputs -> nix derivations
 
-evaluator
+eval-rs: Eval: Evalutates nix expressions
 
-builder
+store-rs-realise: Nix-store: Realises aka builds nix derivations
 
 input -> coordinator: Flake URI
 
-database
+db: DB: Stores derivation paths (nix log, caching)
 
-coordinator -> evaluator: evaluates nix expression
-evaluator -> coordinator: returns result
-coordinator -> derivation: Converts the nix output paths to nix derivations
-derivation -> coordinator: returns result
-coordinator -> database: Stores derivation paths in database for `nix log` and for caching
-coordinator -> builder: realises / builds store path
+coordinator -> eval-rs
+eval-rs -> coordinator: notifies
+coordinator -> derivation-rs
+derivation-rs -> coordinator: notifies
+coordinator -> db: Derivation results
+coordinator -> store-rs-realise
+store-rs-realise -> coordinator: notifies
+
+action
+
+derivation1
+derivation2
+
+action -> derivation1
+action -> derivation2
