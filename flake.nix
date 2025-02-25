@@ -18,8 +18,8 @@
         # openssl
         # pkg-config
         rust-analyzer
-        ruff
         d2
+        rustfmt
       ];
 
       # PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
