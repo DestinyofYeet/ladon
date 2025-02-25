@@ -35,7 +35,7 @@ async fn main() {
 
     // debug!("data_dir path is: {}", args.data_dir.to_str().unwrap());
 
-    let path = path::absolute(args.data_dir).unwrap();
+    let path = fs::canonicalize(args.data_dir).await.unwrap();
 
     let full_path = path.join("db.sqlite");
 
