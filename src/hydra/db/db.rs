@@ -7,7 +7,7 @@ fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
         return some_option.unwrap().to_string();
     } else {
-        return "null".to_string()
+        return "null".to_string();
     }
 }
 #[derive(Debug)]
@@ -37,7 +37,15 @@ pub struct DBBuilds {
 }
 
 impl DBBuilds {
-    pub fn new(flake: String, attribute: String, finished: Option<DateTime<Utc>>, running: bool, success: Option<bool>, time_took: Option<u64>, logs: String) -> Self {
+    pub fn new(
+        flake: String,
+        attribute: String,
+        finished: Option<DateTime<Utc>>,
+        running: bool,
+        success: Option<bool>,
+        time_took: Option<u64>,
+        logs: String,
+    ) -> Self {
         DBBuilds {
             primary_key: None,
             flake,
@@ -46,7 +54,7 @@ impl DBBuilds {
             running,
             success,
             time_took,
-            logs
+            logs,
         }
     }
 }
@@ -64,7 +72,7 @@ impl DBDerivations {
             id: None,
             build_id,
             name,
-            log, 
+            log,
         }
     }
 }
@@ -83,21 +91,22 @@ impl DB {
 
         let db = pool.map_err(|e| DBError::new(e.to_string()))?;
 
-        let db = DB {
-            pool: db,
-        };
+        let db = DB { pool: db };
 
         let setup = db.setup().await;
         if setup.is_some() {
-            return Err(setup.unwrap())
+            return Err(setup.unwrap());
         };
-        
+
         Ok(db)
     }
 
     async fn setup(&self) -> Option<DBError> {
-        let result = self.pool.conn(|conn| {
-            conn.execute_batch("
+        let result = self
+            .pool
+            .conn(|conn| {
+                conn.execute_batch(
+                    "
                     BEGIN;
                     create table if not exists Builds (
                         id integer not null,
@@ -122,8 +131,10 @@ impl DB {
                         foreign key (buildID) references Builds(id)
                     );
                     COMMIT;
-                ")
-        }).await;
+                ",
+                )
+            })
+            .await;
 
         if result.is_err() {
             return Some(DBError::new(result.err().unwrap().to_string()));
@@ -132,34 +143,42 @@ impl DB {
         None
     }
 
-
     /// Inserts a DBBuilds object and returns the rowid if successful
     pub async fn insert_build(&self, build: DBBuilds) -> Result<u64, DBError> {
         let flake = build.flake;
         let attribute = build.attribute;
         let finished: String = match build.finished {
-            Some(value) => {value.to_rfc3339()},
-            None => {"null".to_string()}
+            Some(value) => value.to_rfc3339(),
+            None => "null".to_string(),
         };
         let time_took = convert_to_string(build.time_took);
         let running = build.running.to_string();
         let success = convert_to_string(build.success);
         let logs = build.logs;
 
-        let rowid = self.pool.conn(|conn| {
-            let result: Result<u64, _>  = conn.query_row("
+        let rowid = self
+            .pool
+            .conn(|conn| {
+                let result: Result<u64, _> = conn.query_row(
+                    "
                     insert into Builds
                         (flake, attribute, finished, timeTookSecs, running, success, logs)
                         values
                         (?, ?, ?, ?, ?, ?, ?)
                         returning rowid;
                     commit;
-                ", [flake, attribute, finished, time_took, running, success, logs], |row| row.get(0));
-            if result.is_err(){
-                return Err(result.err().unwrap())
-            }
-            Ok(result.unwrap())
-        }).await;
+                ",
+                    [
+                        flake, attribute, finished, time_took, running, success, logs,
+                    ],
+                    |row| row.get(0),
+                );
+                if result.is_err() {
+                    return Err(result.err().unwrap());
+                }
+                Ok(result.unwrap())
+            })
+            .await;
 
         if rowid.is_err() {
             return Err(DBError::new(rowid.err().unwrap().to_string()));
@@ -172,13 +191,19 @@ impl DB {
         let id = format!("{}", derivation.build_id);
         let name = derivation.name;
         let log = derivation.log;
-        let result = self.pool.conn(|conn| {
-         conn.execute("insert into Derivations
+        let result = self
+            .pool
+            .conn(|conn| {
+                conn.execute(
+                    "insert into Derivations
                  (buildID, path, output)
                  values
                  (?, ?, ?)
-             ", [id, name, log])
-        }).await;
+             ",
+                    [id, name, log],
+                )
+            })
+            .await;
 
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));

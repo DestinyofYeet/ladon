@@ -9,9 +9,21 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::{process::Command, time::Instant};
 
-use tracing::info;
+use tracing::{info, trace};
 
-use super::super::coordinator::{ActionHandle, Coordinator, EvalNotification, EvalNotificationSender};
+use super::super::coordinator::{EvalNotification, EvalNotificationSender};
+
+#[derive(Debug)]
+pub struct EvalInformation {
+    pub name: String,
+    pub nix_path: String,
+}
+
+impl EvalInformation {
+    fn new(name: String, nix_path: String) -> Self {
+        Self { name, nix_path }
+    }
+}
 
 #[derive(Debug)]
 pub struct EvalError {
@@ -24,7 +36,9 @@ impl EvalError {
     }
 
     pub fn from_str(error: &str) -> Self {
-        EvalError { error: String::from_str(error).unwrap() }
+        EvalError {
+            error: String::from_str(error).unwrap(),
+        }
     }
 }
 
@@ -42,9 +56,7 @@ struct ProcessData {
 
 impl ProcessData {
     fn new(done: bool, handle: Child) -> Self {
-        ProcessData {
-            done,
-        }
+        ProcessData { done }
     }
 }
 
@@ -64,14 +76,16 @@ pub struct Eval<'a> {
     flake_uri: &'a str,
 }
 
-impl <'a> Eval<'a>{
+impl<'a> Eval<'a> {
     pub fn new(flake_uri: &'a str) -> Self {
-        Eval {
-            flake_uri,
-        }
+        Eval { flake_uri }
     }
-    
-    pub async fn start(&mut self, sender: EvalNotificationSender, handle: usize) -> Result<JoinHandle<()>, EvalError> {
+
+    pub async fn start(
+        &mut self,
+        sender: EvalNotificationSender,
+        handle: usize,
+    ) -> Result<JoinHandle<()>, EvalError> {
         info!("Evaluating {}", self.flake_uri);
 
         let process = Command::new("nix")
@@ -85,7 +99,10 @@ impl <'a> Eval<'a>{
         let process = match process {
             Ok(value) => value,
             Err(e) => {
-                return Err(EvalError::new(format!("Failed to spawn nix eval: {}", e.to_string())));
+                return Err(EvalError::new(format!(
+                    "Failed to spawn nix eval: {}",
+                    e.to_string()
+                )));
             }
         };
 
@@ -96,16 +113,25 @@ impl <'a> Eval<'a>{
             let status = result.status;
             let stdout = String::from_utf8(result.stdout).unwrap();
             let stderr = String::from_utf8(result.stderr).unwrap();
-            _ = sender.send(EvalNotification::new(handle, stdout, stderr, status)).await;
+            _ = sender
+                .send(EvalNotification::new(handle, stdout, stderr, status))
+                .await;
         });
 
         Ok(handle)
     }
 
-    pub fn get_paths_in_json(value: &Value) -> HashMap<String, String> {
+    pub fn get_paths_in_json(value: &Value) -> Vec<EvalInformation> {
         let mut map = HashMap::new();
         Eval::get_paths_recursive(&mut map, String::new(), value);
-        map
+
+        let mut result = Vec::new();
+
+        for (key, value) in map.iter() {
+            result.push(EvalInformation::new(key.clone(), value.clone()));
+        }
+
+        result
     }
 
     fn get_paths_recursive(map: &mut HashMap<String, String>, current_path: String, value: &Value) {
@@ -124,7 +150,9 @@ impl <'a> Eval<'a>{
             _ => {
                 let val_str = match value {
                     Value::String(s) => s.clone(),
-                    _ => { unreachable!()}
+                    _ => {
+                        unreachable!()
+                    }
                 };
 
                 map.insert(current_path, val_str);
