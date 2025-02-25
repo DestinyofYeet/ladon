@@ -18,11 +18,11 @@ This will create a sqlite db in ./tmp.
 
 Although the flake path and attributes are still hardcoded in main.rs :)
 
-PS: Sorry for the Arc<Mutex<T>> hell
+PS: Sorry for the Arc<Mutex<\T>> hell
 
 # Todos
-- [ ] Fronted (Yew?)
 - [ ] Capture Derivation build output and store it in db
+- [ ] Fronted (Yew?)
 
 ## Idea
 
