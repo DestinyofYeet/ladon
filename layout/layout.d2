@@ -7,22 +7,29 @@ vars: {
 	}
 }
 
-user
+coordinator: Coordinator
+derivation-rs: Derivation: Converts nix outputs -> nix derivations
 
-repo
+eval-rs: Eval: Evalutates nix expressions
 
-hydra {
-	webinterface
+store-rs-realise: Nix-store: Realises aka builds nix derivations
 
-	api
+input -> coordinator: Flake URI
 
-	evaluator
-}
+db: DB: Stores derivation paths (nix log, caching)
 
-hydra.api -> repo: Fetches repository periodically
+coordinator -> eval-rs
+eval-rs -> coordinator: notifies
+coordinator -> derivation-rs
+derivation-rs -> coordinator: notifies
+coordinator -> db: Derivation results
+coordinator -> store-rs-realise
+store-rs-realise -> coordinator: notifies
 
-repo -> hydra.api: (Gitea/Github/etc) Notify that repo updated
+action
 
-user -> hydra.webinterface: Configures repository
+derivation1
+derivation2
 
-hydra.api -> hydra.evaluator: Triggers evaluator to run
+action -> derivation1
+action -> derivation2

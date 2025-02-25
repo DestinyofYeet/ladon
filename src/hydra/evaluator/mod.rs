@@ -1,7 +1,5 @@
-pub use evalmanager::*;
+pub use coordinator::*;
 
-mod evaluator;
+mod nix;
 
-mod evalmanager;
-
-mod parser;
+mod coordinator;
