@@ -1,7 +1,7 @@
 use core::fmt;
 
-use async_sqlite::{Pool, PoolBuilder};
 use chrono::{DateTime, Utc};
+use sqlx::{pool::PoolConnection, query, sqlite::SqlitePool, Sqlite};
 
 fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
@@ -78,16 +78,12 @@ impl DBDerivations {
 }
 
 pub struct DB {
-    pool: Pool,
+    pool: SqlitePool,
 }
 
 impl DB {
     pub async fn new(path: &str) -> Result<Self, DBError> {
-        let pool = PoolBuilder::new()
-            .path(path)
-            .journal_mode(async_sqlite::JournalMode::Memory)
-            .open()
-            .await;
+        let pool = SqlitePool::connect(path).await;
 
         let db = pool.map_err(|e| DBError::new(e.to_string()))?;
 
@@ -101,40 +97,45 @@ impl DB {
         Ok(db)
     }
 
+    async fn get_conn(&self) -> Result<PoolConnection<Sqlite>, DBError> {
+        self.pool
+            .acquire()
+            .await
+            .map_err(|e| DBError::new(e.to_string()))
+    }
+
     async fn setup(&self) -> Option<DBError> {
-        let result = self
-            .pool
-            .conn(|conn| {
-                conn.execute_batch(
-                    "
-                    BEGIN;
-                    create table if not exists Builds (
-                        id integer not null,
-                        flake text not null,
-                        attribute text not null,
-                        finished date,
-                        timeTookSecs int,
-                        running boolean not null,
-                        success boolean,
-                        logs text,
+        let mut conn = self.get_conn().await.unwrap();
+        let result = query!(
+            "
+                begin;
+                create table if not exists Actions (
+                    id integer not null,
+                    flake text not null,
+                    attribute text not null,
+                    finished date,
+                    timeTookSecs int,
+                    running boolean not null,
+                    success boolean,
+                    logs text,
 
-                        primary key (id)
-                    );
-                    
-                    create table if not exists Derivations (
-                        id integer not null,
-                        buildID int not null,
-                        path text not null,
-                        output text,
+                    primary key (id)
+                );
+                
+                create table if not exists Derivations (
+                    id integer not null,
+                    buildID int not null,
+                    path text not null,
+                    output text,
 
-                        primary key (id),
-                        foreign key (buildID) references Builds(id)
-                    );
-                    COMMIT;
-                ",
-                )
-            })
-            .await;
+                    primary key (id),
+                    foreign key (buildID) references Builds(id)
+                );
+                commit;
+            "
+        )
+        .execute(&mut *conn)
+        .await;
 
         if result.is_err() {
             return Some(DBError::new(result.err().unwrap().to_string()));
@@ -156,54 +157,58 @@ impl DB {
         let success = convert_to_string(build.success);
         let logs = build.logs;
 
-        let rowid = self
-            .pool
-            .conn(|conn| {
-                let result: Result<u64, _> = conn.query_row(
-                    "
-                    insert into Builds
-                        (flake, attribute, finished, timeTookSecs, running, success, logs)
-                        values
-                        (?, ?, ?, ?, ?, ?, ?)
-                        returning rowid;
-                    commit;
-                ",
-                    [
-                        flake, attribute, finished, time_took, running, success, logs,
-                    ],
-                    |row| row.get(0),
-                );
-                if result.is_err() {
-                    return Err(result.err().unwrap());
-                }
-                Ok(result.unwrap())
-            })
-            .await;
+        let mut conn = self.get_conn().await?;
 
-        if rowid.is_err() {
-            return Err(DBError::new(rowid.err().unwrap().to_string()));
-        };
+        let result = query!(
+            "
 
-        Ok(rowid.unwrap())
+                insert into Builds
+                    (flake, attribute, finished, timeTookSecs, running, success, logs)
+                    values
+                    (?, ?, ?, ?, ?, ?, ?)
+                    returning id;
+                commit;
+            ",
+            flake,
+            attribute,
+            finished,
+            time_took,
+            running,
+            success,
+            logs
+        )
+        .fetch_one(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
+
+        let result = result.unwrap();
+
+        Ok(result.id as u64)
     }
 
     pub async fn insert_derivation(&self, derivation: DBDerivations) -> Result<(), DBError> {
         let id = format!("{}", derivation.build_id);
         let name = derivation.name;
         let log = derivation.log;
-        let result = self
-            .pool
-            .conn(|conn| {
-                conn.execute(
-                    "insert into Derivations
-                 (buildID, path, output)
-                 values
-                 (?, ?, ?)
-             ",
-                    [id, name, log],
-                )
-            })
-            .await;
+
+        let mut conn = self.get_conn().await?;
+
+        let result = query!(
+            "
+                insert into Derivations
+                    (buildID, path, output)
+                values
+                    (?, ?, ?)
+            ",
+            id,
+            name,
+            log
+        )
+        .execute(&mut *conn)
+        .await;
 
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));

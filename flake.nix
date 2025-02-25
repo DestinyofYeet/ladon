@@ -20,9 +20,12 @@
         rust-analyzer
         d2
         rustfmt
+        sqlite.dev
       ];
 
       # PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+      # for sqlx
+      DATABASE_URL = "sqlite:tmp/db.sqlite";
     };
 
     packages.x86_64-linux.default = pkgs.callPackage ./pkg.nix {};

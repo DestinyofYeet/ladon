@@ -22,6 +22,7 @@ PS: Sorry for the Arc<Mutex<\T>> hell
 
 # Todos
 - [ ] Capture Derivation build output and store it in db
+- [ ] Currently a single action can result in multiple derivations. Each derivaition calls back after a build on its own, setting the value of action twice
 - [ ] Fronted (Yew?)
 
 ## Idea

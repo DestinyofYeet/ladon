@@ -1,16 +1,11 @@
-use std::{
-    collections::HashMap,
-    os::unix::process::ExitStatusExt,
-    process::{ExitCode, ExitStatus},
-    sync::Arc,
-};
+use std::{process::ExitStatus, sync::Arc};
+
+use crate::db::DB;
 
 use super::nix::{derivation::DerivationInformation, store::Store};
 
 use super::nix::derivation::Derivation;
 use super::nix::eval::Eval;
-
-use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
 use tokio::{
@@ -60,7 +55,8 @@ impl Action {
         }
     }
 
-    fn set_state(&mut self, state: ActionState) {
+    fn set_state(&mut self, state: ActionState, db: Option<&DB>) {
+        if db.is_some() {}
         trace!(
             "State of {}: {:#?} -> {:#?}",
             self.flake_uri,
@@ -122,13 +118,15 @@ pub type RealiseNotificationSender = Arc<Sender<RealiseNotification>>;
 struct CoordinatorData {
     actions: Vec<Action>,
     realise_tx: RealiseNotificationSender,
+    db: DB,
 }
 
 impl CoordinatorData {
-    pub fn new(realise_tx: RealiseNotificationSender) -> Self {
+    pub fn new(realise_tx: RealiseNotificationSender, db: DB) -> Self {
         CoordinatorData {
             actions: Vec::new(),
             realise_tx,
+            db,
         }
     }
 }
@@ -143,11 +141,11 @@ pub struct Coordinator {
 }
 
 impl Coordinator {
-    pub fn new() -> Self {
+    pub fn new(db: DB) -> Self {
         let (eval_tx, eval_rx) = mpsc::channel::<EvalNotification>(1);
         let (realise_tx, realise_rx) = mpsc::channel::<RealiseNotification>(1);
 
-        let data = Arc::new(Mutex::new(CoordinatorData::new(Arc::new(realise_tx))));
+        let data = Arc::new(Mutex::new(CoordinatorData::new(Arc::new(realise_tx), db)));
 
         let eval_data = data.clone();
         let realise_data = data.clone();
