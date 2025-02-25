@@ -32,12 +32,21 @@ impl fmt::Display for DerivationError {
 
 impl error::Error for DerivationError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) enum DerivationState {
+    Nothing = 0,
+    Building = 1,
+    Done = 2,
+    Failed = 3,
+}
+
+#[derive(Debug, Clone)]
 pub struct DerivationInformation {
     pub(crate) derivation_path: String,
     pub(crate) name: String,
     pub(crate) system: String,
     pub(crate) obj_name: String,
+    pub(crate) state: DerivationState,
 }
 
 pub struct Derivation {
@@ -126,6 +135,7 @@ impl Derivation {
             name,
             system,
             obj_name: information.name.clone(),
+            state: DerivationState::Nothing,
         })
     }
 

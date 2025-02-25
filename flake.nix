@@ -21,6 +21,7 @@
         d2
         rustfmt
         sqlite.dev
+        sqlx-cli
       ];
 
       # PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";

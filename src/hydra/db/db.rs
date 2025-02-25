@@ -3,13 +3,15 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use sqlx::{
-    migrate::MigrateDatabase,
+    migrate::{self, MigrateDatabase},
     pool::PoolConnection,
     query,
     sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions},
     Sqlite,
 };
 use tracing::info;
+
+use super::super::evaluator::JobState;
 
 fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
@@ -33,34 +35,31 @@ impl fmt::Display for DBError {
     }
 }
 
-pub struct DBBuilds {
+pub struct DBJob {
     primary_key: Option<u64>,
-    flake: String,
-    attribute: String,
+    flake_uri: String,
+    custom_name: Option<String>,
     finished: Option<DateTime<Utc>>,
     time_took: Option<u64>,
-    running: bool,
-    success: Option<bool>,
+    state: JobState,
     logs: String,
 }
 
-impl DBBuilds {
+impl DBJob {
     pub fn new(
-        flake: String,
-        attribute: String,
+        flake_uri: String,
+        custom_name: Option<String>,
         finished: Option<DateTime<Utc>>,
-        running: bool,
-        success: Option<bool>,
+        state: JobState,
         time_took: Option<u64>,
         logs: String,
     ) -> Self {
-        DBBuilds {
+        DBJob {
             primary_key: None,
-            flake,
-            attribute,
+            flake_uri,
+            custom_name,
             finished,
-            running,
-            success,
+            state,
             time_took,
             logs,
         }
@@ -121,75 +120,48 @@ impl DB {
 
     async fn setup(&self) -> Option<DBError> {
         let mut conn = self.get_conn().await.unwrap();
-        let result = query!(
-            "
-                begin;
-                create table if not exists Actions (
-                    id integer not null,
-                    flake text not null,
-                    attribute text not null,
-                    finished date,
-                    timeTookSecs int,
-                    running boolean not null,
-                    success boolean,
-                    logs text,
 
-                    primary key (id)
-                );
-                
-                create table if not exists Derivations (
-                    id integer not null,
-                    buildID int not null,
-                    path text not null,
-                    output text,
-
-                    primary key (id),
-                    foreign key (buildID) references Builds(id)
-                );
-                commit;
-            "
-        )
-        .execute(&mut *conn)
-        .await;
+        let result = sqlx::migrate!("./migrations")
+            .run(&mut *conn)
+            .await
+            .map_err(|e| DBError::new(e.to_string()));
 
         if result.is_err() {
-            return Some(DBError::new(result.err().unwrap().to_string()));
-        };
+            return Some(result.err().unwrap());
+        }
 
         None
     }
 
     /// Inserts a DBBuilds object and returns the rowid if successful
-    pub async fn insert_build(&self, build: DBBuilds) -> Result<u64, DBError> {
-        let flake = build.flake;
-        let attribute = build.attribute;
+    pub async fn insert_build(&self, build: DBJob) -> Result<u64, DBError> {
+        let flake = build.flake_uri;
         let finished: String = match build.finished {
             Some(value) => value.to_rfc3339(),
             None => "null".to_string(),
         };
+        let custom_name = convert_to_string(build.custom_name);
         let time_took = convert_to_string(build.time_took);
-        let running = build.running.to_string();
-        let success = convert_to_string(build.success);
         let logs = build.logs;
+        let state = build.state as i32;
 
         let mut conn = self.get_conn().await?;
 
         let result = query!(
             "
 
-                insert into Builds
-                    (flake, attribute, finished, timeTookSecs, running, success, logs)
+                insert into Jobs
+                    (flake, custom_name, finished, timeTookSecs, state, logs)
                     values
-                    (?, ?, ?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?)
                     returning id;
                 commit;
             ",
             flake,
-            attribute,
+            custom_name,
             finished,
             time_took,
-            running,
-            success,
+            state,
             logs
         )
         .fetch_one(&mut *conn)
@@ -228,6 +200,31 @@ impl DB {
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));
         }
+        Ok(())
+    }
+
+    pub async fn update_job_state(&self, job_id: usize, state: JobState) -> Result<(), DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let state = state as i32;
+        let id = job_id as i32;
+
+        let result = query!(
+            "
+                update Jobs
+                set state = ?
+                where id = ?
+            ",
+            state,
+            id
+        )
+        .execute(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
+
         Ok(())
     }
 }
