@@ -2,11 +2,11 @@
 create table Jobs (
     id integer not null,
     flake text not null,
-    custom_name text,
-    finished date,
-    timeTookSecs int,
-    state int,
-    logs text,
+    custom_name text, -- 
+    finished date, -- When evaluating was done
+    timeTookSecs int, -- How long evaluating took
+    state int, -- Done, Evaluating, Building, etc..
+    logs text, -- is needed if evaluation fails
 
     primary key (id)
 );

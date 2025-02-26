@@ -11,7 +11,7 @@ use sqlx::{
 };
 use tracing::info;
 
-use super::super::evaluator::JobState;
+use super::super::evaluator::{Job, JobState};
 
 fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
@@ -224,6 +224,12 @@ impl DB {
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));
         }
+
+        Ok(())
+    }
+
+    pub async fn update_job(&self, job: &Job) -> Result<(), DBError> {
+        let mut conn = self.get_conn().await?;
 
         Ok(())
     }

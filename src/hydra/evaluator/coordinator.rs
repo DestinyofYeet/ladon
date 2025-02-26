@@ -17,6 +17,7 @@ use tokio::{
         Mutex,
     },
     task::JoinHandle,
+    time::Instant,
 };
 use tracing::{debug, error, info, trace};
 
@@ -104,6 +105,7 @@ pub struct RealiseNotification {
     stderr: String,
     status: ExitStatus,
     derivation_information: DerivationInformation,
+    started_at: Instant,
 }
 
 impl RealiseNotification {
@@ -113,6 +115,7 @@ impl RealiseNotification {
         stderr: String,
         status: ExitStatus,
         derivation_information: DerivationInformation,
+        started_at: Instant,
     ) -> Self {
         Self {
             handle,
@@ -120,6 +123,7 @@ impl RealiseNotification {
             stderr,
             status,
             derivation_information,
+            started_at,
         }
     }
 }
@@ -143,7 +147,7 @@ impl CoordinatorData {
 }
 
 pub struct Coordinator {
-    action_counter: usize,
+    job_counter: usize,
     eval_tx: EvalNotificationSender,
     eval_handle: JoinHandle<()>,
 
@@ -162,7 +166,7 @@ impl Coordinator {
         let realise_data = data.clone();
 
         Coordinator {
-            action_counter: 0,
+            job_counter: 0,
             eval_tx: Arc::new(eval_tx),
             eval_handle: tokio::spawn(async {
                 Coordinator::on_eval_result(eval_rx, eval_data).await
@@ -175,9 +179,9 @@ impl Coordinator {
         }
     }
 
-    fn new_action_id(&mut self) -> usize {
-        let counter = self.action_counter;
-        self.action_counter += 1;
+    fn new_job_id(&mut self) -> usize {
+        let counter = self.job_counter;
+        self.job_counter += 1;
 
         counter
     }
@@ -185,7 +189,7 @@ impl Coordinator {
     pub async fn schedule(&mut self, flake_uri: &str) -> bool {
         info!("New flake scheduled: {}", flake_uri);
         let mut eval = Eval::new(flake_uri);
-        let job_id = self.new_action_id();
+        let job_id = self.new_job_id();
         let result = eval.start(self.eval_tx.clone(), job_id).await;
 
         if result.is_err() {
@@ -260,20 +264,19 @@ impl Coordinator {
             let realise_tx = &data.lock().await.realise_tx.clone();
             trace!("Got tx channel");
 
-            trace!("Attempting to get lock for action");
+            trace!("Attempting to get lock for job");
             let locked = data.lock().await;
             let mut locked_jobs = locked.jobs.lock().await;
-            let action = locked_jobs
+            let job = locked_jobs
                 .iter_mut()
                 .find(|elem| elem.id == notification.handle)
                 .expect(&format!("Failed to find element {}", notification.handle));
 
-            trace!("Got action");
+            trace!("Got job");
 
             if !notification.status.success() {
                 error!("Nix evaluation failed!\nStderr: {}", notification.stderr);
-                action
-                    .set_state(JobState::Failed, Some(&*locked.db.lock().await))
+                job.set_state(JobState::Failed, Some(&*locked.db.lock().await))
                     .await;
                 continue;
             }
@@ -282,8 +285,7 @@ impl Coordinator {
 
             let eval_information = Eval::get_paths_in_json(&result);
 
-            action
-                .set_state(JobState::Decoding, Some(&*locked.db.lock().await))
+            job.set_state(JobState::Decoding, Some(&*locked.db.lock().await))
                 .await;
 
             let derivation = Derivation::new(eval_information);
@@ -302,11 +304,10 @@ impl Coordinator {
 
             trace!("Derivation results: {:#?}", result);
 
-            action.derivation = Some(result);
+            job.derivation = Some(result);
 
-            for derivation in action.derivation.as_mut().unwrap() {
-                let result =
-                    Store::realise(derivation.clone(), realise_tx.clone(), action.id).await;
+            for derivation in job.derivation.as_mut().unwrap() {
+                let result = Store::realise(derivation.clone(), realise_tx.clone(), job.id).await;
 
                 if result.is_err() {
                     error!("Failed to start realisation: {}", result.err().unwrap());
@@ -315,6 +316,11 @@ impl Coordinator {
 
                 derivation.state = DerivationState::Building;
             }
+
+            trace!("[lock] Attempting to get db for state change!");
+            job.set_state(JobState::Building, Some(&*locked.db.lock().await))
+                .await;
+            trace!("[lock] Did state change");
         }
     }
 
@@ -330,7 +336,7 @@ impl Coordinator {
                 continue;
             }
 
-            trace!("[lock] Attempting to get lock for actions");
+            trace!("[lock] Attempting to get lock for job");
             let locked = data.lock().await;
             let mut locked_jobs = locked.jobs.lock().await;
 
@@ -338,7 +344,7 @@ impl Coordinator {
                 .iter_mut()
                 .find(|elem| elem.id == notification.handle)
                 .unwrap();
-            trace!("[lock] Got action");
+            trace!("[lock] Got job");
 
             for derivation in action.derivation.as_mut().unwrap().iter_mut() {
                 if derivation.obj_name == notification.derivation_information.obj_name {

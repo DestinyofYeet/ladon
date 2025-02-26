@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::{ffi::c_schar, path};
 
 use clap::Parser;
 use hydra::db::DB;

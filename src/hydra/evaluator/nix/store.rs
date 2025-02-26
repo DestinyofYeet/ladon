@@ -1,7 +1,7 @@
 use core::{error, fmt};
 use std::{process::Stdio, str::FromStr};
 
-use tokio::{process::Command, task::JoinHandle};
+use tokio::{process::Command, task::JoinHandle, time::Instant};
 use tracing::info;
 
 use super::{
@@ -62,6 +62,8 @@ impl Store {
             }
         };
 
+        let started = Instant::now();
+
         let handle = tokio::spawn(async move {
             let result = process.wait_with_output().await.unwrap();
             let status = result.status;
@@ -69,7 +71,7 @@ impl Store {
             let stderr = String::from_utf8(result.stderr).unwrap();
             _ = sender
                 .send(RealiseNotification::new(
-                    handle, stdout, stderr, status, deriv_info,
+                    handle, stdout, stderr, status, deriv_info, started,
                 ))
                 .await;
         });
