@@ -16,6 +16,7 @@ leptos_meta = { version = "0.7.0" }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 wasm-bindgen = { version = "=0.2.100", optional = true }
 tracing = "0.1.41"
+serde = { version = "1.0.218", features = ["derive"] }
 
 [features]
 hydrate = [

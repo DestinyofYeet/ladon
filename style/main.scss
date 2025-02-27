@@ -1,4 +1,76 @@
+// nice palettes
+// - https://colorhunt.co/palette/070f2b1b1a55535c919290c3
+// - https://colorhunt.co/palette/0000001500503f0071610094
+// - https://colorhunt.co/palette/17153b2e236c433d8bc8acd6
+
+$primary_background: rgb(7, 15, 43);
+$secondary_background: rgb(27, 26, 85);
+$secondary_text: rgb(83, 92, 145);
+$primary_text: rgb(146, 144, 195);
+
 body {
 	font-family: sans-serif;
 	text-align: center;
+  background-color: $primary_background;
+}
+
+.topnav {
+  display: flex;
+  // background-color: $secondary_background;
+
+  width: 100%;
+  height: auto;
+
+  a.hydra {
+    text-align: left;
+    width: 10%;
+    font-size: 1.5em;
+    font-weight: bold;
+    text-decoration: none;
+    color: $primary_text;
+  }
+
+  div.entries {
+    display: flex;
+    align-items: center;
+    align-content: space-evenly;
+
+    a {
+      color: $primary_text;
+      text-align: center;
+      text-decoration: none;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  }
+
+  a:hover {
+    color: $secondary_text;
+  }
+}
+
+h1,h3,a,p,td,tr {
+  color: $primary_text;
+}
+
+.projects {
+  a {
+    display: block;
+    text-decoration: none;
+  }
+
+  td, th {
+    height: 2em;
+  }
+  td {
+    border: 1px solid;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 }
