@@ -1,18 +1,10 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
-    pub id: String,
+    pub id: i32,
+    pub name_id: String,
     pub name: String,
     pub description: String,
-}
-
-impl Project {
-    pub fn new(id: String, name: String, description: String) -> Self {
-        Self {
-            id,
-            name,
-            description
-        }
-    }
 }

@@ -3,6 +3,8 @@
 // - https://colorhunt.co/palette/0000001500503f0071610094
 // - https://colorhunt.co/palette/17153b2e236c433d8bc8acd6
 
+@use "project.scss";
+
 $primary_background: rgb(7, 15, 43);
 $secondary_background: rgb(27, 26, 85);
 $secondary_text: rgb(83, 92, 145);
@@ -49,11 +51,11 @@ body {
   }
 }
 
-h1,h3,a,p,td,tr {
+h1, h2, h3, h4, a, p, td, tr {
   color: $primary_text;
 }
 
-.projects {
+.projects-table {
   a {
     display: block;
     text-decoration: none;

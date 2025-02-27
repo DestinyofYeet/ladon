@@ -7,7 +7,7 @@ mod routes;
 mod models;
 
 #[cfg(feature = "ssr")]
-mod core;
+pub mod hydracore;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

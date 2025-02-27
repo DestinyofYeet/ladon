@@ -3,13 +3,14 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use sqlx::{
-    migrate::{self, MigrateDatabase},
     pool::PoolConnection,
-    query,
-    sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions},
+    query, query_as,
+    sqlite::{SqliteConnectOptions, SqlitePool},
     Sqlite,
 };
 use tracing::info;
+
+use crate::models::Project;
 
 use super::super::evaluator::{Job, JobState};
 
@@ -230,6 +231,46 @@ impl DB {
 
     pub async fn update_job(&self, job: &Job) -> Result<(), DBError> {
         let mut conn = self.get_conn().await?;
+
+        Ok(())
+    }
+
+    pub async fn get_projects(&self) -> Result<Vec<Project>, DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let projects = query_as::<_, Project>("select * from Projects")
+            .fetch_all(&mut *conn)
+            .await;
+
+        let projects = projects.map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(projects)
+    }
+
+    pub async fn add_project(&self, name_id: &str, name: &str, desc: &str) -> Result<(), DBError> {
+        let name_id = name_id.to_string();
+        let name = name.to_string();
+        let desc = desc.to_string();
+
+        let mut conn = self.get_conn().await?;
+
+        let result = query!(
+            "
+                insert into Projects 
+                    (name_id, name, description)
+                values
+                    (?, ?, ?)
+            ",
+            name_id,
+            name,
+            desc
+        )
+        .execute(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
 
         Ok(())
     }

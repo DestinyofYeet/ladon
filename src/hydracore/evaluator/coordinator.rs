@@ -1,5 +1,7 @@
 use std::{process::ExitStatus, sync::Arc};
 
+use crate::hydracore::DBError;
+
 use super::nix::{
     derivation::{DerivationInformation, DerivationState},
     store::Store,
@@ -9,6 +11,8 @@ use super::super::db::{DBJob, DB};
 
 use super::nix::derivation::Derivation;
 use super::nix::eval::Eval;
+
+use crate::models::Project;
 
 use serde_json::Value;
 use tokio::{
@@ -177,6 +181,10 @@ impl Coordinator {
             }),
             data,
         }
+    }
+
+    pub async fn get_projects(&self) -> Result<Vec<Project>, DBError> {
+        self.data.lock().await.db.lock().await.get_projects().await
     }
 
     fn new_job_id(&mut self) -> usize {

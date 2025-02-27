@@ -3,7 +3,8 @@ use std::sync::Arc;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
-    components::{Route, Router, Routes}, path, StaticSegment
+    components::{ParentRoute, Route, Router, Routes},
+    path, StaticSegment,
 };
 
 use leptos::task::spawn_local;
@@ -30,23 +31,23 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
     }
 }
 
-#[server]
-pub async fn send_value(value: i32) -> Result<(), ServerFnError> {
-    let app_state = expect_context::<Arc<state::State>>();
-    println!("Received value: {}", value);
+//#[server]
+//pub async fn send_value(value: i32) -> Result<(), ServerFnError> {
+//    let app_state = expect_context::<Arc<state::State>>();
+//    println!("Received value: {}", value);
+//
+//    *app_state.value.lock().unwrap() += 1;
+//    Ok(())
+//}
 
-    *app_state.value.lock().unwrap() += 1;
-    Ok(())
-}
-
-#[server]
-pub async fn get_value() -> Result<i32, ServerFnError> {
-    let app_state = expect_context::<Arc<state::State>>();
-
-    let locked = app_state.value.lock().unwrap();
-
-    Ok(*locked)
-}
+//#[server]
+//pub async fn get_value() -> Result<i32, ServerFnError> {
+//    let app_state = expect_context::<Arc<state::State>>();
+//
+//    let locked = app_state.value.lock().unwrap();
+//
+//    Ok(*locked)
+//}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -95,7 +96,6 @@ fn HomePage() -> impl IntoView {
     //    <h1>"Welcome to Leptos!"</h1>
     //    <button on:click=on_click>"Click Me: " {count}</button>
     //}
-    
 
     view! {
         <Router>
@@ -110,7 +110,12 @@ fn HomePage() -> impl IntoView {
             </nav>
             <main>
                 <Routes fallback=|| routes::NotFound>
+                    //<ParentRoute path=path!("/project") view=routes::NotFound>
+                    //    <Route path=path!("/project/:name") view=routes::Project/>
+                    //    <Route path=path!("") view=|| {println!("Tried accessing /project. "); routes::NotFound}/> // dunno if needed
+                    //</ParentRoute>
                     <Route path=path!("/") view=routes::Home/>
+                    <Route path=path!("/project/:name") view=routes::Project/>
                 </Routes>
             </main>
         </Router>

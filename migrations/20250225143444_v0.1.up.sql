@@ -20,3 +20,12 @@ create table Derivations (
     primary key (id),
     foreign key (buildID) references Jobs(id)
 );
+
+create table Projects (
+    id integer not null,
+    name_id varchar(255) not null,
+    name varchar(255) not null,
+    description varchar(255) not null,
+
+    primary key (id)
+);
