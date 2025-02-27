@@ -1,9 +1,53 @@
+use std::sync::Arc;
+
 use leptos::prelude::*;
-use leptos_meta::{provide_meta_context, Stylesheet, Title};
+use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
-    StaticSegment, WildcardSegment,
+    StaticSegment,
 };
+
+use leptos::task::spawn_local;
+
+use tracing::info;
+
+use crate::state;
+
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone() />
+                <HydrationScripts options/>
+                <MetaTags/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
+
+#[server]
+pub async fn send_value(value: i32) -> Result<(), ServerFnError> {
+    let app_state = expect_context::<Arc<state::State>>();
+    println!("Received value: {}", value);
+
+    *app_state.value.lock().unwrap() += 1;
+    Ok(())
+}
+
+#[server]
+pub async fn get_value() -> Result<i32, ServerFnError> {
+    let app_state = expect_context::<Arc<state::State>>();
+
+    let locked = app_state.value.lock().unwrap();
+
+    Ok(*locked)
+}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -21,9 +65,8 @@ pub fn App() -> impl IntoView {
         // content for this welcome page
         <Router>
             <main>
-                <Routes fallback=move || "Not found.">
+                <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage/>
-                    <Route path=WildcardSegment("any") view=NotFound/>
                 </Routes>
             </main>
         </Router>
@@ -34,33 +77,29 @@ pub fn App() -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
+    let once = OnceResource::new(get_value());
+    let send_value_action = Action::new(|input: &i32| {
+        let input = input.clone();
+        async move {
+            _ = send_value(input).await;
+        }
+    });
+
     let count = RwSignal::new(0);
-    let on_click = move |_| *count.write() += 1;
+    let on_click = move |_| {
+        *count.write() += 1;
+        
+        send_value_action.dispatch(count.get());
+    };
+
+    Effect::new(move |_|  {
+        if let Some(value) = once.get() {
+            count.set(value.expect("Failed to get value from server"));
+        }
+    });
 
     view! {
         <h1>"Welcome to Leptos!"</h1>
         <button on:click=on_click>"Click Me: " {count}</button>
-    }
-}
-
-/// 404 - Not Found
-#[component]
-fn NotFound() -> impl IntoView {
-    // set an HTTP status code 404
-    // this is feature gated because it can only be done during
-    // initial server-side rendering
-    // if you navigate to the 404 page subsequently, the status
-    // code will not be set because there is not a new HTTP request
-    // to the server
-    #[cfg(feature = "ssr")]
-    {
-        // this can be done inline because it's synchronous
-        // if it were async, we'd use a server function
-        let resp = expect_context::<leptos_actix::ResponseOptions>();
-        resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
-    }
-
-    view! {
-        <h1>"Not Found"</h1>
     }
 }

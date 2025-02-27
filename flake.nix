@@ -3,7 +3,7 @@
 
   inputs = { nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable"; };
 
-  outputs = { self, nixpkgs, }@inputs:
+  outputs = { self, nixpkgs }@inputs:
     let pkgs = import nixpkgs { system = "x86_64-linux"; };
     in {
       devShells.x86_64-linux.default = pkgs.mkShell {
@@ -13,6 +13,7 @@
           # openssl
           # pkg-config
           rust-analyzer
+          cargo-leptos
           lld
           dart-sass
         ];
