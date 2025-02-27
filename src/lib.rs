@@ -6,6 +6,9 @@ mod routes;
 
 mod models;
 
+#[cfg(feature = "ssr")]
+mod core;
+
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {

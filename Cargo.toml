@@ -13,10 +13,13 @@ axum = { version = "0.7", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true}
 leptos_axum = { version = "0.7.0", optional = true }
 leptos_meta = { version = "0.7.0" }
-tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+tokio = { version = "1", features = ["full", "rt-multi-thread"], optional = true }
 wasm-bindgen = { version = "=0.2.100", optional = true }
 tracing = "0.1.41"
 serde = { version = "1.0.218", features = ["derive"] }
+serde_json = { version = "1.0.139", optional = true }
+chrono = { version = "0.4.40", optional = true }
+sqlx = { version = "0.8.3", features = ["runtime-tokio", "sqlite"], optional = true }
 
 [features]
 hydrate = [
@@ -28,6 +31,9 @@ ssr = [
     "dep:axum",
     "dep:tokio",
     "dep:leptos_axum",
+    "dep:serde_json",
+    "dep:chrono",
+    "dep:sqlx",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",

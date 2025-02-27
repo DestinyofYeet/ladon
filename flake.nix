@@ -16,9 +16,12 @@
           cargo-leptos
           lld
           dart-sass
+          sqlite.dev
+          sqlx-cli
         ];
 
         PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+        DATABASE_URL = "sqlite:tmp/db.sqlite";
       };
 
       packages.x86_64-linux.default = pkgs.callPackage ./pkg.nix { };
