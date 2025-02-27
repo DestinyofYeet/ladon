@@ -1,19 +1,11 @@
-// nice palettes
-// - https://colorhunt.co/palette/070f2b1b1a55535c919290c3
-// - https://colorhunt.co/palette/0000001500503f0071610094
-// - https://colorhunt.co/palette/17153b2e236c433d8bc8acd6
-
 @use "project.scss";
-
-$primary_background: rgb(7, 15, 43);
-$secondary_background: rgb(27, 26, 85);
-$secondary_text: rgb(83, 92, 145);
-$primary_text: rgb(146, 144, 195);
+@use "createproject.scss";
+@use "colors.scss";
 
 body {
 	font-family: sans-serif;
 	text-align: center;
-  background-color: $primary_background;
+  background-color: colors.$primary_background;
 }
 
 .topnav {
@@ -23,13 +15,44 @@ body {
   width: 100%;
   height: auto;
 
+  .dropdown {
+    span {
+      text-decoration: underline;
+    }
+
+    position: relative;
+    display: inline-block;
+  }
+
+  .dropdown:hover .dropdown-content {
+    display: block;
+  }
+
+  .dropdown-group {
+    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 10px;
+    border: solid 1px;
+  }
+
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: colors.$secondary_background;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    padding: 10px 10px;
+    z-index: 1;
+  }
+
   a.hydra {
     text-align: left;
     width: 10%;
     font-size: 1.5em;
     font-weight: bold;
     text-decoration: none;
-    color: $primary_text;
+    color: colors.$primary_text;
   }
 
   div.entries {
@@ -38,7 +61,7 @@ body {
     align-content: space-evenly;
 
     a {
-      color: $primary_text;
+      color: colors.$primary_text;
       text-align: center;
       text-decoration: none;
       padding-left: 12px;
@@ -47,12 +70,12 @@ body {
   }
 
   a:hover {
-    color: $secondary_text;
+    color: colors.$secondary_text;
   }
 }
 
-h1, h2, h3, h4, a, p, td, tr {
-  color: $primary_text;
+h1, h2, h3, h4, a, p, td, tr, span, label {
+  color: colors.$primary_text;
 }
 
 .projects-table {

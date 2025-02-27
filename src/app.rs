@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
-    components::{ParentRoute, Route, Router, Routes},
-    path, StaticSegment,
+    components::{Route, Router, Routes},
+    path,
 };
 
 use leptos::task::spawn_local;
@@ -105,6 +103,18 @@ fn HomePage() -> impl IntoView {
                     <div class="entries">
                         <a href="jobsets">Jobsets</a>
                         <a href="dashboard">Dashboard</a>
+                        <div class="dropdown">
+                            <span>Admin</span>
+                            <div class="dropdown-content">
+                                <div class="dropdown-group">
+                                    <a href="create-project">Create Project</a>
+                                    <a href="blub-blub">Blub blub</a>
+                                </div>
+                                <div class="dropdown-group">
+                                    <a href="somethingelse">Something else</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </nav>
@@ -116,6 +126,7 @@ fn HomePage() -> impl IntoView {
                     //</ParentRoute>
                     <Route path=path!("/") view=routes::Home/>
                     <Route path=path!("/project/:name") view=routes::Project/>
+                    <Route path=path!("/create-project") view=routes::CreateProject/>
                 </Routes>
             </main>
         </Router>

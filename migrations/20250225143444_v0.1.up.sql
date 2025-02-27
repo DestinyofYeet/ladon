@@ -23,7 +23,6 @@ create table Derivations (
 
 create table Projects (
     id integer not null,
-    name_id varchar(255) not null,
     name varchar(255) not null,
     description varchar(255) not null,
 

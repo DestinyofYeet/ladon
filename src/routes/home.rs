@@ -19,9 +19,9 @@ pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
     Ok(projects)
 }
 
-fn make_td_entry(id: &str, string: &str) -> impl IntoView {
+fn make_td_entry(id: &i32, string: &str) -> impl IntoView {
     view! {
-         <td><a href={"/project/".to_string() + id}>{string.to_string()}</a></td>
+         <td><a href={"/project/".to_string() + (&format!("{}", id))}>{string.to_string()}</a></td>
     }
 }
 
@@ -36,7 +36,6 @@ pub fn Home() -> impl IntoView {
             <table>
                 <tbody>
                     <tr>
-                        <th>ID</th>
                         <th>Name</th>
                         <th>Description</th>
                     </tr>
@@ -47,9 +46,8 @@ pub fn Home() -> impl IntoView {
                         {data.as_ref().unwrap().into_iter().map(|project|
                             view! {
                             <tr>
-                                {make_td_entry(&project.name_id, &project.name_id)}
-                                {make_td_entry(&project.name_id, &project.name)}
-                                {make_td_entry(&project.name_id, &project.description)}
+                                {make_td_entry(&project.id, &project.name)}
+                                {make_td_entry(&project.id, &project.description)}
                             </tr>
                         }).collect_view()}
                     </Await>
