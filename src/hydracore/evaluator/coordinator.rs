@@ -183,8 +183,23 @@ impl Coordinator {
         }
     }
 
+    pub async fn get_project(&self, id: i32) -> Result<Option<Project>, DBError> {
+        self.data.lock().await.db.lock().await.get_project(id).await
+    }
+
     pub async fn get_projects(&self) -> Result<Vec<Project>, DBError> {
         self.data.lock().await.db.lock().await.get_projects().await
+    }
+
+    pub async fn add_project(&self, name: &str, desc: &str) -> Result<(), DBError> {
+        self.data
+            .lock()
+            .await
+            .db
+            .lock()
+            .await
+            .add_project(name, desc)
+            .await
     }
 
     fn new_job_id(&mut self) -> usize {

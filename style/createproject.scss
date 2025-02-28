@@ -6,15 +6,29 @@
   align-items: center;
   height: auto;
   width: auto;
-  padding-left: 10%;
-  padding-right: 10%;
+  padding-left: 5%;
+  padding-right: 5%;
 
-  input {
+  .inputs {
     display: flex;
     flex-direction: column;
 
-    border-radius: 10%;
+    input {
+      color: colors.$primary_text;
 
-    background-color: colors.$secondary_background;
+      width: 100%;
+      height: 30px;
+      margin: 8px 0;
+
+      border-radius: 10%;
+
+      background-color: colors.$secondary_background;
+    }
+  }
+}
+
+.create-project-form-response {
+  p {
+    color: red;
   }
 }

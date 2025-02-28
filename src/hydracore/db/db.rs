@@ -235,6 +235,25 @@ impl DB {
         Ok(())
     }
 
+    pub async fn get_project(&self, id: i32) -> Result<Option<Project>, DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let project = query_as::<_, Project>(
+            "
+                select * 
+                from Projects
+                where id = ?
+            ",
+        )
+        .bind(id)
+        .fetch_optional(&mut *conn)
+        .await;
+
+        let project = project.map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(project)
+    }
+
     pub async fn get_projects(&self) -> Result<Vec<Project>, DBError> {
         let mut conn = self.get_conn().await?;
 
@@ -247,8 +266,7 @@ impl DB {
         Ok(projects)
     }
 
-    pub async fn add_project(&self, name_id: &str, name: &str, desc: &str) -> Result<(), DBError> {
-        let name_id = name_id.to_string();
+    pub async fn add_project(&self, name: &str, desc: &str) -> Result<(), DBError> {
         let name = name.to_string();
         let desc = desc.to_string();
 
@@ -257,11 +275,10 @@ impl DB {
         let result = query!(
             "
                 insert into Projects 
-                    (name_id, name, description)
+                    (name, description)
                 values
-                    (?, ?, ?)
+                    (?, ?)
             ",
-            name_id,
             name,
             desc
         )
