@@ -1,6 +1,14 @@
 .project {
+  .dropdown {
+    display: flex;
+    justify-content: flex-start;
+  }
+  padding-left: 5em;
   .title {
     text-align: left; 
-    padding-left: 5em;
   } 
+
+  .left  {
+    text-align: left;
+  }
 }

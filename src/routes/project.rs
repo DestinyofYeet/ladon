@@ -45,15 +45,27 @@ pub fn Project() -> impl IntoView {
             let:data
         >
             <div class="project">
-                <h4 class="title">"Project "{
+            {
+                let data = data.as_ref().unwrap();
+
+                if data.is_none() {
+                    view! {
+                        <h1>"Failed to find project"</h1>
+                    }.into_any()
+                } else {
                     let data = data.as_ref().unwrap();
-                    if data.is_some() {
-                        let data = data.as_ref().unwrap();
-                        data.name.to_string()
-                    } else {
-                        "not found!".to_string()
-                    }}
-                </h4>
+                    view!{
+                        <h4 class="title">"Project " {data.name.clone()}</h4>
+                        <div class="dropdown">
+                            <span>Actions</span>
+                            <div class="dropdown-content">
+                                <a href="create-jobset">"Create jobset"</a>
+                            </div>
+                        </div>
+                        <p class="left">The project has following jobsets:</p>
+                    }.into_any()
+                }
+             }
             </div>
         </Await>
     }

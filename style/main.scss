@@ -8,6 +8,37 @@ body {
   background-color: colors.$primary_background;
 }
 
+.dropdown {
+  span {
+    text-decoration: underline;
+  }
+
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+.dropdown-group {
+  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px;
+  border: solid 1px;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: colors.$secondary_background;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  padding: 10px 10px;
+  z-index: 1;
+}
+
 .topnav {
   display: flex;
   // background-color: $secondary_background;
@@ -15,36 +46,6 @@ body {
   width: 100%;
   height: auto;
 
-  .dropdown {
-    span {
-      text-decoration: underline;
-    }
-
-    position: relative;
-    display: inline-block;
-  }
-
-  .dropdown:hover .dropdown-content {
-    display: block;
-  }
-
-  .dropdown-group {
-    gap: 10px;
-    display: flex;
-    flex-direction: column;
-    padding: 10px 10px;
-    border: solid 1px;
-  }
-
-  .dropdown-content {
-    display: none;
-    position: absolute;
-    background-color: colors.$secondary_background;
-    min-width: 160px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    padding: 10px 10px;
-    z-index: 1;
-  }
 
   a.hydra {
     text-align: left;

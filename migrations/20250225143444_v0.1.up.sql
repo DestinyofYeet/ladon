@@ -21,6 +21,21 @@ create table Derivations (
     foreign key (buildID) references Jobs(id)
 );
 
+create table Jobsets (
+    id integer not null,
+    project_id integer not null,
+    flake text not null,
+    name varchar(255) not null,
+    description varchar(255) not null,
+    last_evaluated date,
+    last_checked date,
+    evaluation_took int, -- seconds
+    state int, -- eval_running, idle
+
+    primary key (id),
+    foreign key (project_id) references Projects(id)
+);
+
 create table Projects (
     id integer not null,
     name varchar(255) not null,
