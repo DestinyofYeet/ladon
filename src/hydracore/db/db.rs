@@ -10,7 +10,7 @@ use sqlx::{
 };
 use tracing::info;
 
-use crate::models::Project;
+use crate::models::{Jobset, JobsetState, Project};
 
 use super::super::evaluator::{Job, JobState};
 
@@ -281,6 +281,40 @@ impl DB {
             ",
             name,
             desc
+        )
+        .execute(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
+
+        Ok(())
+    }
+
+    pub async fn add_jobset(&self, project_id: i32, jobset: Jobset) -> Result<(), DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let name = jobset.name;
+        let desc = jobset.description;
+        let flake = jobset.flake;
+        let state = match jobset.state {
+            None => JobsetState::IDLE,
+            Some(value) => value,
+        } as i32;
+
+        let result = query!(
+            "
+                insert into Jobsets
+                    (project_id, flake, name, description, state)
+                values
+                    (?, ?, ?, ?, ?)
+            ",
+            project_id,
+            flake,
+            name,
+            desc,
+            state
         )
         .execute(&mut *conn)
         .await;

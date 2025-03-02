@@ -16,12 +16,17 @@ pub async fn get_project(id: String) -> Result<Option<Project>, ServerFnError> {
 
     let state: Arc<State> = expect_context();
 
-    let result = state
-        .coordinator
-        .lock()
-        .await
-        .get_project(id.parse::<i32>().unwrap())
-        .await;
+    let number = id.parse::<i32>();
+
+    if number.is_err() {
+        return Err(ServerFnError::ServerError(
+            "Failed to fetch project".to_string(),
+        ));
+    }
+
+    let number = number.unwrap();
+
+    let result = state.coordinator.lock().await.get_project(number).await;
 
     if result.is_err() {
         error!("Failed to fetch project: {}", result.err().unwrap());
@@ -41,25 +46,25 @@ pub fn Project() -> impl IntoView {
 
     view! {
         <Await
-            future=get_project(project)
+                future=get_project(project.clone())
             let:data
         >
             <div class="project">
             {
-                let data = data.as_ref().unwrap();
+                let data = data.as_ref();
 
-                if data.is_none() {
+                if data.is_err() || data.unwrap().is_none() {
                     view! {
                         <h1>"Failed to find project"</h1>
                     }.into_any()
                 } else {
-                    let data = data.as_ref().unwrap();
+                    let data = data.unwrap().as_ref().unwrap();
                     view!{
                         <h4 class="title">"Project " {data.name.clone()}</h4>
                         <div class="dropdown">
                             <span>Actions</span>
                             <div class="dropdown-content">
-                                <a href="create-jobset">"Create jobset"</a>
+                                <a href=format!("{}/create-jobset", project)>"Create jobset"</a>
                             </div>
                         </div>
                         <p class="left">The project has following jobsets:</p>

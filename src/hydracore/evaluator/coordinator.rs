@@ -1,6 +1,6 @@
 use std::{process::ExitStatus, sync::Arc};
 
-use crate::hydracore::DBError;
+use crate::{hydracore::DBError, models::Jobset};
 
 use super::nix::{
     derivation::{DerivationInformation, DerivationState},
@@ -207,6 +207,17 @@ impl Coordinator {
         self.job_counter += 1;
 
         counter
+    }
+
+    pub async fn add_jobset(&mut self, project_id: i32, jobset: Jobset) -> Result<(), DBError> {
+        self.data
+            .lock()
+            .await
+            .db
+            .lock()
+            .await
+            .add_jobset(project_id, jobset)
+            .await
     }
 
     pub async fn schedule(&mut self, flake_uri: &str) -> bool {

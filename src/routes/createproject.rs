@@ -54,7 +54,7 @@ pub fn CreateProject() -> impl IntoView {
     let has_error = move || resp.with(|val| matches!(val, Some(Err(_))));
 
     view! {
-        <div class="create-project-form">
+        <div class="generic-input-form">
             <ActionForm action=create_project_action>
                 <h3>Create a new project</h3>
                 <div class="inputs">
@@ -64,7 +64,7 @@ pub fn CreateProject() -> impl IntoView {
                 </div>
             </ActionForm>
         </div>
-        <div class="create-project-form-response">
+        <div class="generic-input-form-response">
             {move || if has_error() {
                 view! {<p class="error">"Failed to add project"</p>}
             } else {
