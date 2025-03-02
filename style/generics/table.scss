@@ -1,0 +1,23 @@
+.generic_table {
+  a {
+    display: block;
+    text-decoration: none;
+  }
+
+  td, th {
+    height: 2em;
+  }
+  td {
+    border: 1px solid;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+  
+  table {
+    width: 90%;
+    border-collapse: collapse;
+    margin-left: 5%;
+    margin-right: 5%;
+  }
+}

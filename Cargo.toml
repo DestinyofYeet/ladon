@@ -19,9 +19,10 @@ tracing = { version = "0.1.41" }
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = { version = "1.0.139", optional = true }
 chrono = { version = "0.4.40", features = ["serde"] }
-sqlx = { version = "0.8.3", features = ["runtime-tokio", "sqlite"], optional = true }
+sqlx = { version = "0.8.3", features = ["runtime-tokio", "sqlite", "chrono"], optional = true }
 clap = { version = "4.5.31", features = ["derive"], optional = true }
 tracing-subscriber = { version = "0.3.19", optional = true }
+stylance = "0.5.5"
 
 [features]
 hydrate = [
@@ -41,7 +42,6 @@ ssr = [
     "leptos_meta/ssr",
     "leptos_router/ssr",
 ]
-
 # Defines a size-optimized profile for the WASM bundle in release mode
 [profile.wasm-release]
 inherits = "release"

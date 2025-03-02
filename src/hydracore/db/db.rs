@@ -298,23 +298,25 @@ impl DB {
         let name = jobset.name;
         let desc = jobset.description;
         let flake = jobset.flake;
+        let interval = jobset.check_interval;
         let state = match jobset.state {
             None => JobsetState::IDLE,
             Some(value) => value,
-        } as i32;
+        };
 
         let result = query!(
             "
                 insert into Jobsets
-                    (project_id, flake, name, description, state)
+                    (project_id, flake, name, description, state, check_interval)
                 values
-                    (?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?)
             ",
             project_id,
             flake,
             name,
             desc,
-            state
+            state,
+            interval,
         )
         .execute(&mut *conn)
         .await;
@@ -324,5 +326,25 @@ impl DB {
         }
 
         Ok(())
+    }
+
+    pub async fn get_jobsets(&self, project_id: i32) -> Result<Vec<Jobset>, DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let result = sqlx::query_as::<_, Jobset>(
+            "
+                select * from Jobsets
+                where project_id = ?
+            ",
+        )
+        .bind(project_id)
+        .fetch_all(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
+
+        Ok(result.unwrap())
     }
 }

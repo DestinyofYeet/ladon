@@ -202,13 +202,6 @@ impl Coordinator {
             .await
     }
 
-    fn new_job_id(&mut self) -> usize {
-        let counter = self.job_counter;
-        self.job_counter += 1;
-
-        counter
-    }
-
     pub async fn add_jobset(&mut self, project_id: i32, jobset: Jobset) -> Result<(), DBError> {
         self.data
             .lock()
@@ -218,6 +211,24 @@ impl Coordinator {
             .await
             .add_jobset(project_id, jobset)
             .await
+    }
+
+    pub async fn get_jobsets(&mut self, project_id: i32) -> Result<Vec<Jobset>, DBError> {
+        self.data
+            .lock()
+            .await
+            .db
+            .lock()
+            .await
+            .get_jobsets(project_id)
+            .await
+    }
+
+    fn new_job_id(&mut self) -> usize {
+        let counter = self.job_counter;
+        self.job_counter += 1;
+
+        counter
     }
 
     pub async fn schedule(&mut self, flake_uri: &str) -> bool {

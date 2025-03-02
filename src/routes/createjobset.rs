@@ -54,7 +54,7 @@ pub fn CreateJobset() -> impl IntoView {
 
     let params = use_params_map();
 
-    let project = params.read_untracked().get("name").unwrap_or_default();
+    let project = params.read_untracked().get("proj-id").unwrap_or_default();
 
     let has_error = move || resp.with(|val| matches!(val, Some(Err(_))));
 

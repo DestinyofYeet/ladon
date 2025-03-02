@@ -28,7 +28,7 @@ fn make_td_entry(id: &i32, string: &str) -> impl IntoView {
 #[component]
 pub fn Home() -> impl IntoView {
     view! {
-        <div class="projects-table">
+        <div class="generic_table">
             <h3>Projects</h3>
             <div class="description">
             <p>The following projects are hosted here.</p>

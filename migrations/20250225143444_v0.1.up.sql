@@ -23,14 +23,15 @@ create table Derivations (
 
 create table Jobsets (
     id integer not null,
-    project_id integer not null,
+    project_id int not null,
     flake text not null,
     name varchar(255) not null,
     description varchar(255) not null,
     last_evaluated date,
     last_checked date,
+    check_interval int not null,
     evaluation_took int, -- seconds
-    state int, -- eval_running, idle
+    state text, -- eval_running, idle
 
     primary key (id),
     foreign key (project_id) references Projects(id)

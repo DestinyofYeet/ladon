@@ -105,12 +105,12 @@ fn HomePage() -> impl IntoView {
                         <a href="dashboard">Dashboard</a>
                         <div class="dropdown">
                             <span>Admin</span>
-                            <div class="dropdown-content">
-                                <div class="dropdown-group">
+                            <div class="dropdown_content">
+                                <div class="dropdown_group">
                                     <a href="create-project">Create Project</a>
                                     <a href="blub-blub">Blub blub</a>
                                 </div>
-                                <div class="dropdown-group">
+                                <div class="dropdown_group">
                                     <a href="somethingelse">Something else</a>
                                 </div>
                             </div>
@@ -126,8 +126,9 @@ fn HomePage() -> impl IntoView {
                     //</ParentRoute>
                     <Route path=path!("/") view=routes::Home/>
                     <Route path=path!("/create-project") view=routes::CreateProject/>
-                    <Route path=path!("/project/:name") view=routes::Project/>
-                    <Route path=path!("/project/:name/create-jobset") view=routes::CreateJobset/>
+                    <Route path=path!("/project/:proj-id") view=routes::Project/>
+                    <Route path=path!("/project/:proj-id/create-jobset") view=routes::CreateJobset/>
+                    <Route path=path!("/project/:proj-id/jobset/:jobset-id") view=routes::Jobset/>
                 </Routes>
             </main>
         </Router>

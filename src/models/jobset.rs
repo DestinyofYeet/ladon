@@ -1,16 +1,18 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "ssr", derive(sqlx::Type))]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum JobsetState {
-    IDLE = 0,
-    RUNNING = 1,
+    IDLE,
+    RUNNING,
 }
 
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Jobset {
     pub id: Option<i32>,
-    project_id: Option<i32>,
+    pub project_id: Option<i32>,
     pub name: String,
     pub flake: String,
     pub description: String,
