@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use leptos::prelude::*;
+use leptos::{prelude::*, task::spawn_local};
 use leptos_router::hooks::use_params_map;
 
 use crate::{
@@ -74,6 +74,14 @@ pub async fn get_jobset(id: String) -> Result<Option<Jobset>, ServerFnError> {
     Ok(jobset.unwrap())
 }
 
+#[server]
+pub async fn trigger_jobset(project_id: String, jobset_id: String) -> Result<(), ServerFnError> {
+    use tracing::info;
+
+    info!("Triggered jobset: {}", jobset_id);
+    Ok(())
+}
+
 #[component]
 pub fn Jobset() -> impl IntoView {
     let params = use_params_map();
@@ -82,6 +90,8 @@ pub fn Jobset() -> impl IntoView {
     let jobset_id = params.read_untracked().get("jobset-id").unwrap_or_default();
 
     let jobsetOnce = OnceResource::new(get_jobset(jobset_id.clone()));
+
+    let trigger_jobset_action = ServerAction::<TriggerJobset>::new();
 
     view! {
         <Suspense fallback=move || view! {<p>"Loading jobset data..."</p>}>
@@ -117,7 +127,15 @@ pub fn Jobset() -> impl IntoView {
                             <div class="dropdown">
                                 <span>"Actions"</span>
                                 <div class="dropdown_content">
-                                   <a href=format!("/project/{}/jobset/{}/trigger", &project_id, &jobset_id)>"Trigger jobset"</a>
+                                    <div class="generic_input_form">
+                                        <ActionForm action=trigger_jobset_action>
+                                            <div class="inputs">
+                                                <input type="hidden" name="project_id" value=jobset.project_id.unwrap().to_string()/>
+                                                <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
+                                                <input type="submit" value="Trigger jobset"/>
+                                            </div>
+                                        </ActionForm>
+                                    </div>
                                 </div>
                             </div>
                         </div>
