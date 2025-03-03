@@ -24,12 +24,12 @@ pub async fn create_project_server(proj_data: ProjectCreationData) -> Result<(),
         let err = "Name cannot be empty!".to_string();
         warn!("{err}");
         response_opts.set_status(StatusCode::BAD_REQUEST);
-        return Err(ServerFnError::MissingArg(err));
+        return Err(ServerFnError::new(err));
     } else if desc == "" {
         let err = "Description cannot be empty!".to_string();
         warn!("{err}");
         response_opts.set_status(StatusCode::BAD_REQUEST);
-        return Err(ServerFnError::MissingArg(err));
+        return Err(ServerFnError::new(err));
     }
 
     let state: Arc<State> = expect_context();
@@ -37,7 +37,9 @@ pub async fn create_project_server(proj_data: ProjectCreationData) -> Result<(),
     let result = state.coordinator.lock().await.add_project(name, desc).await;
     if result.is_err() {
         error!("Failed to create project: {}", result.err().unwrap());
-        return Err(ServerFnError::new(""));
+        return Err(ServerFnError::new(
+            "Failed to create project! Check the server logs!",
+        ));
     }
 
     info!("Created new project: {}", name);
@@ -51,10 +53,8 @@ pub fn CreateProject() -> impl IntoView {
 
     let resp = create_project_action.value();
 
-    let has_error = move || resp.with(|val| matches!(val, Some(Err(_))));
-
     view! {
-        <div class="generic-input-form">
+        <div class="generic_input_form">
             <ActionForm action=create_project_action>
                 <h3>Create a new project</h3>
                 <div class="inputs">
@@ -64,12 +64,17 @@ pub fn CreateProject() -> impl IntoView {
                 </div>
             </ActionForm>
         </div>
-        <div class="generic-input-form-response">
-            {move || if has_error() {
-                view! {<p class="error">"Failed to add project"</p>}
-            } else {
-                view! {<p class="success">""</p>}
-            }}
+        <div class="generic_input_form_response">
+            {move || match resp.get() {
+                Some(Err(e)) => {
+                    let msg = match e {
+                        ServerFnError::ServerError(msg) => msg,
+                        _ => e.to_string(),
+                    };
+                    view! {<p class="error">"Failed to add project: "{msg}</p>}.into_any()
+                },
+                _ => {view! {}.into_any()},
+             }}
         </div>
     }
 }

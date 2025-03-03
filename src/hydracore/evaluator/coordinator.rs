@@ -7,13 +7,14 @@ use super::nix::{
     store::Store,
 };
 
-use super::super::db::{DBJob, DB};
+use super::super::db::DB;
 
 use super::nix::derivation::Derivation;
 use super::nix::eval::Eval;
 
 use crate::models::Project;
 
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tokio::{
     sync::{
@@ -26,7 +27,7 @@ use tokio::{
 use tracing::{debug, error, info, trace};
 
 #[derive(Debug, Clone)]
-pub enum JobState {
+pub enum EvaluationState {
     None = 0,
     Failed = 1,
     Evaluating = 2,
@@ -35,43 +36,31 @@ pub enum JobState {
     Done = 5,
 }
 
-pub struct JobHandle {
-    handle: usize,
-}
-
-impl JobHandle {
-    fn new(id: usize) -> Self {
-        JobHandle { handle: id }
-    }
-}
-
 #[derive(Debug)]
-pub struct Job {
+pub struct Evaluation {
     id: usize,
     flake_uri: String,
-    state: JobState,
-    handle: JoinHandle<()>,
+    state: EvaluationState,
     derivation: Option<Vec<DerivationInformation>>,
 }
 
-impl Job {
-    fn new(id: usize, flake_uri: String, handle: JoinHandle<()>) -> Self {
-        Job {
+impl Evaluation {
+    fn new(id: usize, flake_uri: String) -> Self {
+        Evaluation {
             id,
             flake_uri,
-            state: JobState::None,
-            handle,
+            state: EvaluationState::None,
             derivation: None,
         }
     }
 
-    async fn set_state(&mut self, state: JobState, db: Option<&DB>) {
+    async fn set_state(&mut self, state: EvaluationState, db: Option<&DB>) {
         if db.is_some() {
-            let db = db.unwrap();
-            let result = db.update_job_state(self.id, state.clone()).await;
-            if result.is_err() {
-                error!("Failed to update state in db: {}", result.err().unwrap())
-            }
+            //let db = db.unwrap();
+            //let result = db.update_job_state(self.id, state.clone()).await;
+            //if result.is_err() {
+            //    error!("Failed to update state in db: {}", result.err().unwrap())
+            //}
         }
         trace!(
             "State of {}: {:#?} -> {:#?}",
@@ -109,7 +98,7 @@ pub struct RealiseNotification {
     stderr: String,
     status: ExitStatus,
     derivation_information: DerivationInformation,
-    started_at: Instant,
+    started_at: DateTime<Utc>,
 }
 
 impl RealiseNotification {
@@ -119,7 +108,7 @@ impl RealiseNotification {
         stderr: String,
         status: ExitStatus,
         derivation_information: DerivationInformation,
-        started_at: Instant,
+        started_at: DateTime<Utc>,
     ) -> Self {
         Self {
             handle,
@@ -135,7 +124,7 @@ impl RealiseNotification {
 pub type RealiseNotificationSender = Arc<Sender<RealiseNotification>>;
 
 struct CoordinatorData {
-    jobs: Mutex<Vec<Job>>,
+    evaluations: Mutex<Vec<Evaluation>>,
     realise_tx: RealiseNotificationSender,
     db: Mutex<DB>,
 }
@@ -143,7 +132,7 @@ struct CoordinatorData {
 impl CoordinatorData {
     pub fn new(realise_tx: RealiseNotificationSender, db: DB) -> Self {
         CoordinatorData {
-            jobs: Mutex::new(Vec::new()),
+            evaluations: Mutex::new(Vec::new()),
             realise_tx,
             db: Mutex::new(db),
         }
@@ -224,7 +213,18 @@ impl Coordinator {
             .await
     }
 
-    fn new_job_id(&mut self) -> usize {
+    pub async fn get_jobset(&mut self, jobset_id: i32) -> Result<Option<Jobset>, DBError> {
+        self.data
+            .lock()
+            .await
+            .db
+            .lock()
+            .await
+            .get_jobset(jobset_id)
+            .await
+    }
+
+    fn new_eval_id(&mut self) -> usize {
         let counter = self.job_counter;
         self.job_counter += 1;
 
@@ -234,8 +234,8 @@ impl Coordinator {
     pub async fn schedule(&mut self, flake_uri: &str) -> bool {
         info!("New flake scheduled: {}", flake_uri);
         let mut eval = Eval::new(flake_uri);
-        let job_id = self.new_job_id();
-        let result = eval.start(self.eval_tx.clone(), job_id).await;
+        let eval_id = self.new_eval_id();
+        let result = eval.start(self.eval_tx.clone(), eval_id).await;
 
         if result.is_err() {
             error!(
@@ -246,50 +246,26 @@ impl Coordinator {
             return false;
         }
 
-        let result = result.unwrap();
-        let mut job = Job::new(job_id, flake_uri.to_string(), result);
+        let mut evaluation = Evaluation::new(eval_id, flake_uri.to_string());
 
-        let db_job = DBJob::new(
-            flake_uri.to_string(),
-            None,
-            None,
-            job.state.clone(),
-            None,
-            String::new(),
-        );
-
-        trace!("[lock] Attempting to get db");
-        let result = self
-            .data
-            .lock()
-            .await
-            .db
-            .lock()
-            .await
-            .insert_build(db_job)
+        trace!("[lock] Attemping to set eval state");
+        evaluation
+            .set_state(
+                EvaluationState::Evaluating,
+                Some(&*self.data.lock().await.db.lock().await),
+            )
             .await;
-        if result.is_err() {
-            eprintln!(
-                "Failed to schedule flake {}: {}",
-                flake_uri,
-                result.err().unwrap()
-            );
+        trace!("[lock] Set eval state");
 
-            return false;
-        }
-        trace!("[lock] Did db");
-
-        trace!("[lock] Attemping to set job state");
-        job.set_state(
-            JobState::Evaluating,
-            Some(&*self.data.lock().await.db.lock().await),
-        )
-        .await;
-        trace!("[lock] Set job state");
-
-        trace!("[lock] Attemping to add job to jobs array");
-        self.data.lock().await.jobs.lock().await.push(job);
-        trace!("[lock] Added job");
+        trace!("[lock] Attemping to add eval to eval array");
+        self.data
+            .lock()
+            .await
+            .evaluations
+            .lock()
+            .await
+            .push(evaluation);
+        trace!("[lock] Added eval");
 
         true
     }
@@ -309,19 +285,19 @@ impl Coordinator {
             let realise_tx = &data.lock().await.realise_tx.clone();
             trace!("Got tx channel");
 
-            trace!("Attempting to get lock for job");
+            trace!("Attempting to get lock for evaluations");
             let locked = data.lock().await;
-            let mut locked_jobs = locked.jobs.lock().await;
+            let mut locked_jobs = locked.evaluations.lock().await;
             let job = locked_jobs
                 .iter_mut()
                 .find(|elem| elem.id == notification.handle)
                 .expect(&format!("Failed to find element {}", notification.handle));
 
-            trace!("Got job");
+            trace!("Got evaluation");
 
             if !notification.status.success() {
                 error!("Nix evaluation failed!\nStderr: {}", notification.stderr);
-                job.set_state(JobState::Failed, Some(&*locked.db.lock().await))
+                job.set_state(EvaluationState::Failed, Some(&*locked.db.lock().await))
                     .await;
                 continue;
             }
@@ -330,7 +306,7 @@ impl Coordinator {
 
             let eval_information = Eval::get_paths_in_json(&result);
 
-            job.set_state(JobState::Decoding, Some(&*locked.db.lock().await))
+            job.set_state(EvaluationState::Decoding, Some(&*locked.db.lock().await))
                 .await;
 
             let derivation = Derivation::new(eval_information);
@@ -363,7 +339,7 @@ impl Coordinator {
             }
 
             trace!("[lock] Attempting to get db for state change!");
-            job.set_state(JobState::Building, Some(&*locked.db.lock().await))
+            job.set_state(EvaluationState::Building, Some(&*locked.db.lock().await))
                 .await;
             trace!("[lock] Did state change");
         }
@@ -381,15 +357,15 @@ impl Coordinator {
                 continue;
             }
 
-            trace!("[lock] Attempting to get lock for job");
+            trace!("[lock] Attempting to get lock for evaluation");
             let locked = data.lock().await;
-            let mut locked_jobs = locked.jobs.lock().await;
+            let mut locked_jobs = locked.evaluations.lock().await;
 
             let action = locked_jobs
                 .iter_mut()
                 .find(|elem| elem.id == notification.handle)
                 .unwrap();
-            trace!("[lock] Got job");
+            trace!("[lock] Got evaluation");
 
             for derivation in action.derivation.as_mut().unwrap().iter_mut() {
                 if derivation.obj_name == notification.derivation_information.obj_name {
@@ -409,7 +385,7 @@ impl Coordinator {
             if all_done {
                 trace!("[lock] Attempting to get db for state change");
                 action
-                    .set_state(JobState::Done, Some(&*locked.db.lock().await))
+                    .set_state(EvaluationState::Done, Some(&*locked.db.lock().await))
                     .await;
                 trace!("[lock] Got db")
             }

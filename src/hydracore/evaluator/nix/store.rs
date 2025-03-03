@@ -1,6 +1,7 @@
 use core::{error, fmt};
 use std::{process::Stdio, str::FromStr};
 
+use chrono::DateTime;
 use tokio::{process::Command, task::JoinHandle, time::Instant};
 use tracing::info;
 
@@ -62,7 +63,7 @@ impl Store {
             }
         };
 
-        let started = Instant::now();
+        let started = chrono::Utc::now();
 
         let handle = tokio::spawn(async move {
             let result = process.wait_with_output().await.unwrap();

@@ -1,11 +1,25 @@
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "ssr", derive(sqlx::Type))]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum JobsetState {
+    UNKNOWN,
     IDLE,
     RUNNING,
+}
+
+impl JobsetState {
+    pub fn to_string(&self) -> String {
+        String::from_str(match self {
+            JobsetState::IDLE => "idle",
+            JobsetState::RUNNING => "running",
+            JobsetState::UNKNOWN => "unknown",
+        })
+        .unwrap()
+    }
 }
 
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]

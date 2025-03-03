@@ -4,20 +4,7 @@ use leptos::prelude::*;
 use leptos::{component, view, IntoView};
 
 use crate::models::Project;
-
-#[server]
-pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
-    use crate::state::State;
-    let state: Arc<State> = expect_context();
-
-    let coordinator = state.coordinator.lock().await;
-
-    let projects = coordinator.get_projects().await;
-
-    let projects = projects.map_err(|e| ServerFnError::new(e.to_string()))?;
-
-    Ok(projects)
-}
+use crate::routes::get_projects;
 
 fn make_td_entry(id: &i32, string: &str) -> impl IntoView {
     view! {

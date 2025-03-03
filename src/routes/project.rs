@@ -1,11 +1,29 @@
+use std::sync::Arc;
+
 use leptos::prelude::*;
 use leptos_router::{hooks::use_params_map, params::Params};
 
 use crate::models::{Jobset, Project};
 
+use crate::routes::get_jobsets;
+
 #[derive(Params, PartialEq)]
 struct ProjectParams {
     name: Option<String>,
+}
+
+#[server]
+pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
+    use crate::state::State;
+    let state: Arc<State> = expect_context();
+
+    let coordinator = state.coordinator.lock().await;
+
+    let projects = coordinator.get_projects().await;
+
+    let projects = projects.map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    Ok(projects)
 }
 
 #[server]
@@ -36,41 +54,6 @@ pub async fn get_project(id: String) -> Result<Option<Project>, ServerFnError> {
     }
 
     Ok(result.unwrap())
-}
-
-#[server]
-pub async fn get_jobsets(id: String) -> Result<Vec<Jobset>, ServerFnError> {
-    use crate::state::State;
-    use axum::http::StatusCode;
-    use leptos_axum::ResponseOptions;
-    use std::sync::Arc;
-    use tracing::error;
-
-    let state: Arc<State> = expect_context();
-    let response_opts: ResponseOptions = expect_context();
-
-    let number = id.parse::<i32>();
-
-    if number.is_err() {
-        response_opts.set_status(StatusCode::BAD_REQUEST);
-        return Err(ServerFnError::new("Failed to find project!"));
-    }
-
-    let number = number.unwrap();
-
-    let jobsets = state.coordinator.lock().await.get_jobsets(number).await;
-
-    if jobsets.is_err() {
-        error!(
-            "Failed to fetch jobsets: {}",
-            jobsets.err().unwrap().to_string()
-        );
-        return Err(ServerFnError::new("Failed to fetch jobsets"));
-    }
-
-    let jobsets = jobsets.unwrap();
-
-    Ok(jobsets)
 }
 
 fn make_td_entry(proj_id: &str, id: &i32, string: &str) -> impl IntoView {

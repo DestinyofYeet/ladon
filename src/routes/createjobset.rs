@@ -14,14 +14,14 @@ pub async fn create_jobset(project_id: i32, jobset: Jobset) -> Result<(), Server
 
     if jobset.name == "" {
         let err = "Name may not be empty!";
-        warn!(err);
+        warn!("{}", err);
         response_opts.set_status(StatusCode::BAD_REQUEST);
         return Err(ServerFnError::new(err));
     }
 
     if jobset.flake == "" {
         let err = "Flake URI may not be empty!";
-        warn!(err);
+        warn!("{}", err);
         response_opts.set_status(StatusCode::BAD_REQUEST);
         return Err(ServerFnError::new(err));
     }
@@ -56,10 +56,8 @@ pub fn CreateJobset() -> impl IntoView {
 
     let project = params.read_untracked().get("proj-id").unwrap_or_default();
 
-    let has_error = move || resp.with(|val| matches!(val, Some(Err(_))));
-
     view! {
-        <div class="generic-input-form">
+        <div class="generic_input_form">
             <ActionForm action=create_jobset_action>
                 <h3>Create a new Jobset</h3>
                 <div class="inputs">
@@ -72,11 +70,21 @@ pub fn CreateJobset() -> impl IntoView {
                 </div>
             </ActionForm>
         </div>
-        <div class="generic-input-form-response">
-            {move || if has_error() {
-                view! {<p class="error">"Failed to add jobset"</p>}
-            } else {
-                view! {<p class="success">""</p>}
+        <div class="generic_input_form_response">
+            {move || match resp.get() {
+                Some(Err(e)) => {
+                    let msg = match e {
+                        ServerFnError::ServerError(msg) => msg,
+                        _ => e.to_string(),
+                    };
+
+                    view! {<p class="error">"Failed to add jobset: "{msg}</p>}.into_any()
+
+                },
+                _ => {
+
+                    view! {<p class="success">""</p>}.into_any()
+                }
             }}
         </div>
     }

@@ -1,7 +1,6 @@
 use core::fmt;
 use std::str::FromStr;
 
-use chrono::{DateTime, Utc};
 use sqlx::{
     pool::PoolConnection,
     query, query_as,
@@ -11,8 +10,6 @@ use sqlx::{
 use tracing::info;
 
 use crate::models::{Jobset, JobsetState, Project};
-
-use super::super::evaluator::{Job, JobState};
 
 fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
@@ -33,55 +30,6 @@ impl DBError {
 impl fmt::Display for DBError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-pub struct DBJob {
-    primary_key: Option<u64>,
-    flake_uri: String,
-    custom_name: Option<String>,
-    finished: Option<DateTime<Utc>>,
-    time_took: Option<u64>,
-    state: JobState,
-    logs: String,
-}
-
-impl DBJob {
-    pub fn new(
-        flake_uri: String,
-        custom_name: Option<String>,
-        finished: Option<DateTime<Utc>>,
-        state: JobState,
-        time_took: Option<u64>,
-        logs: String,
-    ) -> Self {
-        DBJob {
-            primary_key: None,
-            flake_uri,
-            custom_name,
-            finished,
-            state,
-            time_took,
-            logs,
-        }
-    }
-}
-
-pub struct DBDerivations {
-    id: Option<u64>,
-    build_id: u64,
-    name: String,
-    log: String,
-}
-
-impl DBDerivations {
-    pub fn new(build_id: u64, name: String, log: String) -> Self {
-        DBDerivations {
-            id: None,
-            build_id,
-            name,
-            log,
-        }
     }
 }
 
@@ -131,108 +79,9 @@ impl DB {
             return Some(result.err().unwrap());
         }
 
+        info!("Applied database migrations (if necessary)");
+
         None
-    }
-
-    /// Inserts a DBBuilds object and returns the rowid if successful
-    pub async fn insert_build(&self, build: DBJob) -> Result<u64, DBError> {
-        let flake = build.flake_uri;
-        let finished: String = match build.finished {
-            Some(value) => value.to_rfc3339(),
-            None => "null".to_string(),
-        };
-        let custom_name = convert_to_string(build.custom_name);
-        let time_took = convert_to_string(build.time_took);
-        let logs = build.logs;
-        let state = build.state as i32;
-
-        let mut conn = self.get_conn().await?;
-
-        let result = query!(
-            "
-
-                insert into Jobs
-                    (flake, custom_name, finished, timeTookSecs, state, logs)
-                    values
-                    (?, ?, ?, ?, ?, ?)
-                    returning id;
-                commit;
-            ",
-            flake,
-            custom_name,
-            finished,
-            time_took,
-            state,
-            logs
-        )
-        .fetch_one(&mut *conn)
-        .await;
-
-        if result.is_err() {
-            return Err(DBError::new(result.err().unwrap().to_string()));
-        }
-
-        let result = result.unwrap();
-
-        Ok(result.id as u64)
-    }
-
-    pub async fn insert_derivation(&self, derivation: DBDerivations) -> Result<(), DBError> {
-        let id = format!("{}", derivation.build_id);
-        let name = derivation.name;
-        let log = derivation.log;
-
-        let mut conn = self.get_conn().await?;
-
-        let result = query!(
-            "
-                insert into Derivations
-                    (buildID, path, output)
-                values
-                    (?, ?, ?)
-            ",
-            id,
-            name,
-            log
-        )
-        .execute(&mut *conn)
-        .await;
-
-        if result.is_err() {
-            return Err(DBError::new(result.err().unwrap().to_string()));
-        }
-        Ok(())
-    }
-
-    pub async fn update_job_state(&self, job_id: usize, state: JobState) -> Result<(), DBError> {
-        let mut conn = self.get_conn().await?;
-
-        let state = state as i32;
-        let id = job_id as i32;
-
-        let result = query!(
-            "
-                update Jobs
-                set state = ?
-                where id = ?
-            ",
-            state,
-            id
-        )
-        .execute(&mut *conn)
-        .await;
-
-        if result.is_err() {
-            return Err(DBError::new(result.err().unwrap().to_string()));
-        }
-
-        Ok(())
-    }
-
-    pub async fn update_job(&self, job: &Job) -> Result<(), DBError> {
-        let mut conn = self.get_conn().await?;
-
-        Ok(())
     }
 
     pub async fn get_project(&self, id: i32) -> Result<Option<Project>, DBError> {
@@ -339,6 +188,26 @@ impl DB {
         )
         .bind(project_id)
         .fetch_all(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
+
+        Ok(result.unwrap())
+    }
+
+    pub async fn get_jobset(&self, jobset_id: i32) -> Result<Option<Jobset>, DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let result = sqlx::query_as::<_, Jobset>(
+            "
+                select * from Jobsets
+                where id = ?
+            ",
+        )
+        .bind(jobset_id)
+        .fetch_optional(&mut *conn)
         .await;
 
         if result.is_err() {
