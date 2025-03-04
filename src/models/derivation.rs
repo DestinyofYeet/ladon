@@ -8,7 +8,7 @@ use {
 
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Derivation {
+pub struct Job {
     pub id: Option<i32>,
     pub evaluation_id: i32,
     pub attribute_name: String,
@@ -16,7 +16,7 @@ pub struct Derivation {
 }
 
 #[cfg(feature = "ssr")]
-impl Derivation {
+impl Job {
     pub fn new(evaluation_id: i32, attribute_name: String, derivation_path: String) -> Self {
         Self {
             id: None,
@@ -31,7 +31,7 @@ impl Derivation {
 
         let result = query!(
             "
-                insert into Derivations
+                insert into Jobs
                     (evaluation_id, attribute_name, derivation_path)
                 values
                     (?, ?, ?)

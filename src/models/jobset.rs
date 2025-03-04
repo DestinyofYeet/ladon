@@ -163,7 +163,7 @@ impl Jobset {
         Ok(result.unwrap())
     }
 
-    pub async fn add_to_db(&self, db: &DB) -> Result<(), DBError> {
+    pub async fn add_to_db(&mut self, db: &DB) -> Result<(), DBError> {
         let mut conn = db.get_conn().await?;
 
         let name = &self.name;
@@ -179,6 +179,7 @@ impl Jobset {
                     (project_id, flake, name, description, state, check_interval)
                 values
                     (?, ?, ?, ?, ?, ?)
+                returning id
             ",
             proj_id,
             flake,
@@ -187,12 +188,14 @@ impl Jobset {
             state,
             interval,
         )
-        .execute(&mut *conn)
+        .fetch_one(&mut *conn)
         .await;
 
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));
         }
+
+        self.id = Some(result.unwrap().id as i32);
 
         Ok(())
     }
@@ -228,78 +231,51 @@ impl Jobset {
 
         let mut query: QueryBuilder<'_, Sqlite> = QueryBuilder::new("update Jobsets set ");
 
-        let mut need_comma = false;
+        let mut separated = query.separated(", ");
 
-        if let Some(name) = diff.name {
-            self.name = name.clone();
-            query.push(" name = ").push_bind(name);
-            need_comma = true;
+        let mut has_updates = false;
+
+        macro_rules! handle_field_base {
+            ($field:ident, $column:literal, $val:ident => $assign_expr:expr) => {
+                if let Some($val) = diff.$field {
+                    self.$field = $assign_expr;
+                    separated
+                        .push_unseparated(concat!($column, " = "))
+                        .push_bind(&self.$field);
+                    has_updates = true;
+                }
+            };
         }
 
-        if let Some(desc) = diff.description {
-            self.description = desc.clone();
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" description = ").push_bind(desc);
+        macro_rules! handle_field {
+            ($field:ident, $column:literal) => {
+                handle_field_base!($field, $column, value => value);
+            };
         }
 
-        if let Some(flake) = diff.flake {
-            self.flake = flake.clone();
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" flake = ").push_bind(flake);
+        macro_rules! handle_field_some {
+            ($field:ident, $column:literal) => {
+                handle_field_base!($field, $column, value => Some(value));
+            };
         }
-        if let Some(check_interval) = diff.check_interval {
-            self.check_interval = check_interval;
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" check_interval = ").push_bind(check_interval);
-        }
-        if let Some(last_checked) = diff.last_checked {
-            self.last_checked = Some(last_checked);
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" last_checked = ").push_bind(last_checked);
-        }
-        if let Some(evaluation_took) = diff.evaluation_took {
-            self.evaluation_took = Some(evaluation_took);
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" evaluation_took = ").push_bind(evaluation_took);
-        }
-        if let Some(state) = diff.state {
-            self.state = Some(state.clone());
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" state = ").push_bind(state);
-        }
-        if let Some(value) = diff.last_evaluated {
-            self.last_evaluated = Some(value);
-            if need_comma {
-                query.push(",");
-            }
-            need_comma = true;
-            query.push(" last_evaluated = ").push_bind(value);
-        }
-        if let Some(error_message) = diff.error_message {
-            self.error_message = Some(error_message.clone());
-            if need_comma {
-                query.push(",");
-            }
-            //need_comma = true;
-            query.push(" error_message = ").push_bind(error_message);
+
+        handle_field!(name, "name");
+        handle_field!(description, "description");
+        handle_field!(flake, "flake");
+        handle_field!(check_interval, "check_interval");
+
+        handle_field_some!(last_checked, "last_checked");
+
+        handle_field_some!(evaluation_took, "evaluation_took");
+
+        handle_field_some!(state, "state");
+
+        handle_field_some!(last_evaluated, "last_evaluated");
+
+        handle_field_some!(error_message, "error_message");
+
+        if !has_updates {
+            return Ok(());
         }
 
         query.push(" where id = ").push_bind(self_id);

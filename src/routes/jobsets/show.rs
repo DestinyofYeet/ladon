@@ -221,6 +221,7 @@ pub fn Jobset() -> impl IntoView {
                             {mk_jobset_entry("Flake URI: ", jobset.flake)}
                             {mk_jobset_entry("Last checked: ", convert_date_to_string(jobset.last_checked))}
                             {mk_jobset_entry("Last evaluated: ", convert_date_to_string(jobset.last_evaluated))}
+                            {mk_jobset_entry("Check interval (every): ", convert_seconds_to_minutes(jobset.check_interval))}
                             {mk_jobset_entry("Evaluation took: ", convert_seconds_to_minutes(jobset.evaluation_took.unwrap_or(-1)))}
                             {mk_jobset_entry("State: ", jobset.state.clone().unwrap_or(JobsetState::Unknown).to_string())}
                             {

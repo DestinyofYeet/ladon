@@ -29,6 +29,8 @@ pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
 
     let state: Arc<State> = expect_context();
 
+    let mut jobset = jobset;
+
     let result = jobset
         .add_to_db(&*state.coordinator.lock().await.get_db().await.lock().await)
         .await;
@@ -39,7 +41,11 @@ pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
         error!("Failed to add jobset: {}", err);
         return Err(ServerFnError::new("Failed to add jobset!".to_string()));
     }
-    leptos_axum::redirect(&format!("/project/{}", jobset.project_id));
+    leptos_axum::redirect(&format!(
+        "/project/{}/jobset/{}",
+        jobset.project_id,
+        jobset.id.unwrap()
+    ));
     Ok(())
 }
 
@@ -62,6 +68,7 @@ pub fn CreateJobset() -> impl IntoView {
                     <input type="text" name="jobset[name]" id="jobset_name" placeholder="Jobset Name"/>
                     <input type="text" name="jobset[description]" id="jobset_desc" placeholder="Jobset Description"/>
                     <input type="text" name="jobset[flake]" id="jobset_flake_uri" placeholder="Jobset Flake Uri"/>
+                    <label for="jobset_check_interval">"Jobset check interval"</label>
                     <input type="number" name="jobset[check_interval]" id="jobset_check_interval" placeholder="Jobset check interval" value=0/>
                     <input type="submit" value="Create project"/>
                 </div>

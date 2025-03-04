@@ -1,6 +1,6 @@
 use std::{process::ExitStatus, sync::Arc};
 
-use crate::models::{Derivation, Jobset, JobsetDiff, JobsetState};
+use crate::models::{Job, Jobset, JobsetDiff, JobsetState};
 
 use super::{
     super::db::DB,

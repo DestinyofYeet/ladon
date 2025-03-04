@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 
-use crate::models::{Derivation, JobsetID};
+use crate::models::{Job, JobsetID};
 
 pub struct EvalDoneNotification {
     started: DateTime<Utc>,
     finished: DateTime<Utc>,
     successfull: bool,
     error_msg: Option<String>,
-    derivations: Option<Vec<Derivation>>,
+    derivations: Option<Vec<Job>>,
     jobset_id: JobsetID,
 }
 
@@ -17,7 +17,7 @@ impl EvalDoneNotification {
         finished: DateTime<Utc>,
         successfull: bool,
         error_msg: Option<String>,
-        derivations: Option<Vec<Derivation>>,
+        derivations: Option<Vec<Job>>,
         jobset_id: JobsetID,
     ) -> Self {
         Self {
@@ -38,7 +38,7 @@ impl EvalDoneNotification {
         self.error_msg = Some(error);
     }
 
-    pub fn set_derivations(&mut self, derivations: Vec<Derivation>) {
+    pub fn set_derivations(&mut self, derivations: Vec<Job>) {
         self.derivations = Some(derivations);
     }
 
@@ -58,11 +58,11 @@ impl EvalDoneNotification {
         self.error_msg.as_deref()
     }
 
-    pub fn get_derivations(&self) -> Option<&Vec<Derivation>> {
+    pub fn get_derivations(&self) -> Option<&Vec<Job>> {
         self.derivations.as_ref()
     }
 
-    pub fn get_derivations_copy(&mut self) -> Option<Vec<Derivation>> {
+    pub fn get_derivations_copy(&mut self) -> Option<Vec<Job>> {
         let vec = self.derivations.clone();
         if vec.is_none() {
             return None;

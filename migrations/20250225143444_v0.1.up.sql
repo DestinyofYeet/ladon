@@ -31,7 +31,7 @@ create table Evaluations (
     foreign key (jobset_id) references Jobsets(id)
 );
 
-create table Derivations (
+create table Jobs (
     id integer not null,
     evaluation_id int not null,
     attribute_name text not null, -- name of attribute in hydraJobs. like: "systems.main" or "systems.wattson"

@@ -49,7 +49,7 @@ impl Project {
         Ok(projects)
     }
 
-    pub async fn add_to_db(&self, db: &DB) -> Result<(), DBError> {
+    pub async fn add_to_db(&mut self, db: &DB) -> Result<(), DBError> {
         let name = &self.name;
         let desc = &self.description;
 
@@ -61,16 +61,19 @@ impl Project {
                     (name, description)
                 values
                     (?, ?)
+                returning id
             ",
             name,
             desc
         )
-        .execute(&mut *conn)
+        .fetch_one(&mut *conn)
         .await;
 
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));
         }
+
+        self.id = Some(result.unwrap().id as i32);
 
         Ok(())
     }

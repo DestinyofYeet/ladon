@@ -10,7 +10,7 @@ use tracing::{debug, error, info};
 
 use tokio::{process::Command, sync::mpsc::Sender, task::JoinHandle};
 
-use crate::models::{Derivation, Jobset, JobsetID};
+use crate::models::{Job, Jobset, JobsetID};
 
 use super::super::notifications::EvalDoneNotification;
 
@@ -126,14 +126,14 @@ impl Evaluation {
     }
 }
 
-fn get_derivation_information(value: &Value, jobset_id: JobsetID) -> Vec<Derivation> {
+fn get_derivation_information(value: &Value, jobset_id: JobsetID) -> Vec<Job> {
     let mut map = HashMap::new();
     get_paths_recursive(&mut map, String::new(), value);
 
     let mut result = Vec::new();
 
     for (key, value) in map.iter() {
-        result.push(Derivation::new(jobset_id, key.clone(), value.clone()));
+        result.push(Job::new(jobset_id, key.clone(), value.clone()));
     }
 
     result

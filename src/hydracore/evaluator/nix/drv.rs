@@ -5,7 +5,7 @@ use serde_json::Value;
 use tokio::process::Command;
 use tracing::info;
 
-use crate::models::Derivation;
+use crate::models::Job;
 
 #[derive(Debug)]
 pub struct DerivationError {

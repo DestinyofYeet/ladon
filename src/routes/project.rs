@@ -5,7 +5,7 @@ use leptos_router::{hooks::use_params_map, params::Params};
 
 use crate::models::{Jobset, Project};
 
-use crate::routes::get_jobsets;
+use crate::routes::jobsets::get_jobsets;
 
 #[derive(Params, PartialEq)]
 struct ProjectParams {

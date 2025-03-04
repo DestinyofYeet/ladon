@@ -26,6 +26,8 @@ pub async fn create_project_server(project: Project) -> Result<(), ServerFnError
 
     let state: Arc<State> = expect_context();
 
+    let mut project = project;
+
     let result = project
         .add_to_db(&*state.coordinator.lock().await.get_db().await.lock().await)
         .await;
@@ -38,7 +40,7 @@ pub async fn create_project_server(project: Project) -> Result<(), ServerFnError
     }
 
     info!("Created new project: {}", project.name);
-    leptos_axum::redirect("/");
+    leptos_axum::redirect(&format!("/project/{}", project.id.unwrap()));
     Ok(())
 }
 
