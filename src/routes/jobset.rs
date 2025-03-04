@@ -59,7 +59,7 @@ pub async fn get_jobset(id: String) -> Result<Option<Jobset>, ServerFnError> {
     if jobset_id.is_err() {
         response_opts.set_status(StatusCode::BAD_REQUEST);
         error!("Invalid jobset given");
-        return Err(ServerFnError::new("Failed to find project!"));
+        return Err(ServerFnError::new("Failed to find jobset!"));
     }
 
     let jobset_id = jobset_id.unwrap();
@@ -76,10 +76,81 @@ pub async fn get_jobset(id: String) -> Result<Option<Jobset>, ServerFnError> {
 
 #[server]
 pub async fn trigger_jobset(project_id: String, jobset_id: String) -> Result<(), ServerFnError> {
+    use crate::state::State;
+    use axum::http::StatusCode;
+    use leptos_axum::{redirect, ResponseOptions};
+    use std::sync::Arc;
+    use tracing::error;
     use tracing::info;
 
+    let jobset = get_jobset(jobset_id.clone()).await?;
+    let response_opts: ResponseOptions = expect_context();
+
+    if jobset.is_none() {
+        response_opts.set_status(StatusCode::BAD_REQUEST);
+        return Err(ServerFnError::new("Failed to find jobset!"));
+    }
+
+    let mut jobset = jobset.unwrap();
+
+    let state: Arc<State> = expect_context();
+
     info!("Triggered jobset: {}", jobset_id);
+
+    let result = state
+        .coordinator
+        .lock()
+        .await
+        .schedule_jobset(&mut jobset)
+        .await;
+
+    if result.is_err() {
+        error!("Failed to schedule jobset: {}", result.err().unwrap());
+        return Err(ServerFnError::new("Failed to schedule jobset!"));
+    }
+
+    redirect(&format!("/project/{}/jobset/{}", project_id, jobset_id));
     Ok(())
+}
+
+#[component]
+pub fn TriggerJobset() -> impl IntoView {
+    let params = use_params_map();
+
+    let project_id = params.read_untracked().get("proj-id").unwrap_or_default();
+    let jobset_id = params.read_untracked().get("jobset-id").unwrap_or_default();
+
+    let trigger_jobset = OnceResource::new(trigger_jobset(project_id, jobset_id));
+
+    view! {
+        <Suspense
+            fallback=move || view! {<p>"Processing request..."</p>}
+
+        >
+
+        {move || {
+            match trigger_jobset.get() {
+                Some(Err(e)) => {
+                    let msg = match e {
+                        ServerFnError::ServerError(msg) => msg,
+                        _ => e.to_string(),
+                    };
+
+                    view! {
+                        <p class="error">"Failed to trigger jobset: " {msg}</p>
+                    }.into_any()
+                },
+
+                _ => {
+                    view! {
+                        <p>"Successfully triggered jobset!"</p>
+                    }.into_any()
+                }
+            }
+        }}
+
+        </Suspense>
+    }
 }
 
 #[component]
@@ -90,8 +161,6 @@ pub fn Jobset() -> impl IntoView {
     let jobset_id = params.read_untracked().get("jobset-id").unwrap_or_default();
 
     let jobsetOnce = OnceResource::new(get_jobset(jobset_id.clone()));
-
-    let trigger_jobset_action = ServerAction::<TriggerJobset>::new();
 
     view! {
         <Suspense fallback=move || view! {<p>"Loading jobset data..."</p>}>
@@ -127,15 +196,7 @@ pub fn Jobset() -> impl IntoView {
                             <div class="dropdown">
                                 <span>"Actions"</span>
                                 <div class="dropdown_content">
-                                    <div class="generic_input_form">
-                                        <ActionForm action=trigger_jobset_action>
-                                            <div class="inputs">
-                                                <input type="hidden" name="project_id" value=jobset.project_id.unwrap().to_string()/>
-                                                <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
-                                                <input type="submit" value="Trigger jobset"/>
-                                            </div>
-                                        </ActionForm>
-                                    </div>
+                                    <a href=format!("/project/{}/jobset/{}/trigger", project_id, jobset_id)>"Trigger jobset"</a>
                                 </div>
                             </div>
                         </div>

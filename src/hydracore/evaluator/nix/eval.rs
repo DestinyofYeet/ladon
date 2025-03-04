@@ -1,162 +1,127 @@
-use std::collections::HashMap;
-use std::process::{ExitStatus, Stdio};
-use std::sync::Arc;
-use std::{error, fmt, str::FromStr};
+use core::{error, fmt};
+use std::{collections::HashMap, process::Stdio, str::FromStr};
 
-use serde_json::{self, Value};
-use tokio::process::Child;
-use tokio::sync::Mutex;
-use tokio::task::JoinHandle;
-use tokio::{process::Command, time::Instant};
+use axum::Error;
+use chrono::{DateTime, Utc};
+use serde_json::Value;
+use tracing::{debug, error, info};
 
-use tracing::{info, trace};
+use tokio::{process::Command, task::JoinHandle};
 
-use super::super::coordinator::{EvalNotification, EvalNotificationSender};
+use crate::models::{Derivation, Jobset, JobsetID};
 
 #[derive(Debug)]
-pub struct EvalInformation {
-    pub name: String,
-    pub nix_path: String,
-}
-
-impl EvalInformation {
-    fn new(name: String, nix_path: String) -> Self {
-        Self { name, nix_path }
-    }
-}
-
-#[derive(Debug)]
-pub struct EvalError {
+pub struct EvaluationError {
     error: String,
 }
 
-impl EvalError {
+impl EvaluationError {
     pub fn new(error: String) -> Self {
-        EvalError { error }
+        EvaluationError { error }
     }
-
     pub fn from_str(error: &str) -> Self {
-        EvalError {
+        EvaluationError {
             error: String::from_str(error).unwrap(),
         }
     }
 }
 
-impl fmt::Display for EvalError {
+impl fmt::Display for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.error)
     }
 }
 
-impl error::Error for EvalError {}
+impl error::Error for EvaluationError {}
+pub struct Evaluation {}
 
-struct ProcessData {
-    done: bool,
-}
+impl Evaluation {
+    pub async fn new(jobset: &Jobset) -> Result<JoinHandle<()>, EvaluationError> {
+        if jobset.id.is_none() {
+            return Err(EvaluationError::new("Jobset struct has no id!".to_string()));
+        }
+        let jobset_id = jobset.id.unwrap();
 
-impl ProcessData {
-    fn new(done: bool, handle: Child) -> Self {
-        ProcessData { done }
-    }
-}
-
-pub struct EvalResult {
-    data: Arc<Mutex<ProcessData>>,
-    started: Instant,
-}
-
-impl EvalResult {
-    pub async fn is_done(&self) -> bool {
-        return self.data.lock().await.done;
-    }
-}
-
-/// This will evaluate a nix expression and return a name and a nix output path.
-pub struct Eval<'a> {
-    flake_uri: &'a str,
-}
-
-impl<'a> Eval<'a> {
-    pub fn new(flake_uri: &'a str) -> Self {
-        Eval { flake_uri }
-    }
-
-    pub async fn start(
-        &mut self,
-        sender: EvalNotificationSender,
-        handle: usize,
-    ) -> Result<JoinHandle<()>, EvalError> {
-        info!("Evaluating {}", self.flake_uri);
+        info!("Evaluating: {}", jobset.flake);
 
         let process = Command::new("nix")
             .arg("eval")
             .arg("--json")
-            .arg(self.flake_uri)
+            .arg(&jobset.flake)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn();
+            .spawn()
+            .map_err(|e| EvaluationError::new(e.to_string()))?;
 
-        let process = match process {
-            Ok(value) => value,
-            Err(e) => {
-                return Err(EvalError::new(format!(
-                    "Failed to spawn nix eval: {}",
-                    e.to_string()
-                )));
-            }
-        };
-
-        let started = Instant::now();
+        let started = Utc::now();
 
         let handle = tokio::spawn(async move {
             let result = process.wait_with_output().await.unwrap();
             let status = result.status;
+
+            let done = Utc::now();
+
+            if !status.success() {
+                error!("Nix eval did not finish successfully!");
+                return;
+            }
             let stdout = String::from_utf8(result.stdout).unwrap();
-            let stderr = String::from_utf8(result.stderr).unwrap();
-            _ = sender
-                .send(EvalNotification::new(handle, stdout, stderr, status))
-                .await;
+
+            debug!("stdout: {}", stdout);
+
+            let value: Result<Value, _> = serde_json::from_str(&stdout);
+
+            if value.is_err() {
+                error!("Failed to parse nix eval output: {}", stdout);
+                return;
+            }
+
+            let value = value.unwrap();
+
+            let derivations = get_derivation_information(&value, jobset_id);
+
+            info!("Got derivations: {:#?}", derivations);
         });
 
         Ok(handle)
     }
+}
 
-    pub fn get_paths_in_json(value: &Value) -> Vec<EvalInformation> {
-        let mut map = HashMap::new();
-        Eval::get_paths_recursive(&mut map, String::new(), value);
+fn get_derivation_information(value: &Value, jobset_id: JobsetID) -> Vec<Derivation> {
+    let mut map = HashMap::new();
+    get_paths_recursive(&mut map, String::new(), value);
 
-        let mut result = Vec::new();
+    let mut result = Vec::new();
 
-        for (key, value) in map.iter() {
-            result.push(EvalInformation::new(key.clone(), value.clone()));
-        }
-
-        result
+    for (key, value) in map.iter() {
+        result.push(Derivation::new(jobset_id, key.clone(), value.clone()));
     }
 
-    fn get_paths_recursive(map: &mut HashMap<String, String>, current_path: String, value: &Value) {
-        match value {
-            Value::Object(obj) => {
-                for (key, val) in obj {
-                    let new_path = if current_path.is_empty() {
-                        key.to_string()
-                    } else {
-                        format!("{}.{}", current_path, key)
-                    };
-                    Eval::get_paths_recursive(map, new_path, val);
-                }
-            }
+    result
+}
 
-            _ => {
-                let val_str = match value {
-                    Value::String(s) => s.clone(),
-                    _ => {
-                        unreachable!()
-                    }
+fn get_paths_recursive(map: &mut HashMap<String, String>, current_path: String, value: &Value) {
+    match value {
+        Value::Object(obj) => {
+            for (key, val) in obj {
+                let new_path = if current_path.is_empty() {
+                    key.to_string()
+                } else {
+                    format!("{}.{}", current_path, key)
                 };
-
-                map.insert(current_path, val_str);
+                get_paths_recursive(map, new_path, val);
             }
+        }
+
+        _ => {
+            let val_str = match value {
+                Value::String(s) => s.clone(),
+                _ => {
+                    unreachable!()
+                }
+            };
+
+            map.insert(current_path, val_str);
         }
     }
 }

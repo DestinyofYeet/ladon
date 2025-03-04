@@ -9,7 +9,7 @@ use sqlx::{
 };
 use tracing::info;
 
-use crate::models::{Jobset, JobsetState, Project};
+use crate::models::{Jobset, JobsetID, JobsetState, Project};
 
 fn convert_to_string<T: ToString>(some_option: Option<T>) -> String {
     if some_option.is_some() {
@@ -215,5 +215,31 @@ impl DB {
         }
 
         Ok(result.unwrap())
+    }
+
+    pub async fn update_jobset_state(
+        &self,
+        jobset_id: JobsetID,
+        state: JobsetState,
+    ) -> Result<(), DBError> {
+        let mut conn = self.get_conn().await?;
+
+        let result = query!(
+            "
+                    update Jobsets
+                    set state = ? 
+                    where id = ?
+                ",
+            state,
+            jobset_id,
+        )
+        .execute(&mut *conn)
+        .await;
+
+        if result.is_err() {
+            return Err(DBError::new(result.err().unwrap().to_string()));
+        }
+
+        Ok(())
     }
 }
