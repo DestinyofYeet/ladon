@@ -32,10 +32,13 @@ impl fmt::Display for DerivationError {
 
 impl error::Error for DerivationError {}
 
-pub struct Drv {}
+pub struct Drv {
+    pub drv_path: String,
+    pub name: String,
+}
 
 impl Drv {
-    pub async fn get_derivation(output_path: &str) -> Result<String, DerivationError> {
+    pub async fn get_derivation(output_path: &str) -> Result<Drv, DerivationError> {
         info!("Getting derivation path for: {}", output_path);
 
         let process = Command::new("nix")
@@ -90,6 +93,11 @@ impl Drv {
 
         let (drv_path, value) = test.remove(0);
 
-        Ok(drv_path)
+        let value = value.get("name").unwrap().as_str().unwrap();
+
+        Ok(Drv {
+            drv_path,
+            name: value.to_string(),
+        })
     }
 }

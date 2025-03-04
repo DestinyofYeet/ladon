@@ -173,13 +173,17 @@ impl Coordinator {
 
                 let result = result.unwrap();
 
-                eval.derivation_path = result;
+                eval.derivation_path = result.drv_path;
+
+                if eval.attribute_name == "" {
+                    eval.attribute_name = result.name;
+                }
             }
 
             for derivation in derivations.iter_mut() {
                 let result = derivation.add_to_db(&db).await;
                 if result.is_err() {
-                    error!("Failed to add derivatin to db!");
+                    error!("Failed to add derivation to db!");
                     return;
                 }
             }
