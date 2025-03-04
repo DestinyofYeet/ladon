@@ -19,7 +19,7 @@ pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
 
     let coordinator = state.coordinator.lock().await;
 
-    let projects = coordinator.get_projects().await;
+    let projects = Project::get_all(&*coordinator.get_db().await.lock().await).await;
 
     let projects = projects.map_err(|e| ServerFnError::new(e.to_string()))?;
 
@@ -44,7 +44,11 @@ pub async fn get_project(id: String) -> Result<Option<Project>, ServerFnError> {
 
     let number = number.unwrap();
 
-    let result = state.coordinator.lock().await.get_project(number).await;
+    let result = Project::get_single(
+        &*state.coordinator.lock().await.get_db().await.lock().await,
+        number,
+    )
+    .await;
 
     if result.is_err() {
         error!("Failed to fetch project: {}", result.err().unwrap());

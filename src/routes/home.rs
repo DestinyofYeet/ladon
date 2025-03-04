@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
 use leptos::prelude::*;
 use leptos::{component, view, IntoView};
 
-use crate::models::Project;
 use crate::routes::get_projects;
 
 fn make_td_entry(id: &i32, string: &str) -> impl IntoView {
@@ -33,8 +30,8 @@ pub fn Home() -> impl IntoView {
                         {data.as_ref().unwrap().into_iter().map(|project|
                             view! {
                             <tr>
-                                {make_td_entry(&project.id, &project.name)}
-                                {make_td_entry(&project.id, &project.description)}
+                                {make_td_entry(&project.id.unwrap(), &project.name)}
+                                {make_td_entry(&project.id.unwrap(), &project.description)}
                             </tr>
                         }).collect_view()}
                     </Await>

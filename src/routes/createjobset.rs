@@ -3,7 +3,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
 #[server]
-pub async fn create_jobset(project_id: i32, jobset: Jobset) -> Result<(), ServerFnError> {
+pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
     use crate::state::State;
     use axum::http::StatusCode;
     use leptos_axum::ResponseOptions;
@@ -25,15 +25,12 @@ pub async fn create_jobset(project_id: i32, jobset: Jobset) -> Result<(), Server
         response_opts.set_status(StatusCode::BAD_REQUEST);
         return Err(ServerFnError::new(err));
     }
-    info!("Creating new jobset on project {}", project_id);
+    info!("Creating new jobset on project {}", jobset.project_id);
 
     let state: Arc<State> = expect_context();
 
-    let result = state
-        .coordinator
-        .lock()
-        .await
-        .add_jobset(project_id, jobset)
+    let result = jobset
+        .add_to_db(&*state.coordinator.lock().await.get_db().await.lock().await)
         .await;
 
     if result.is_err() {
@@ -42,7 +39,7 @@ pub async fn create_jobset(project_id: i32, jobset: Jobset) -> Result<(), Server
         error!("Failed to add jobset: {}", err);
         return Err(ServerFnError::new("Failed to add jobset!".to_string()));
     }
-    leptos_axum::redirect(&format!("/project/{}", project_id));
+    leptos_axum::redirect(&format!("/project/{}", jobset.project_id));
     Ok(())
 }
 
@@ -61,7 +58,7 @@ pub fn CreateJobset() -> impl IntoView {
             <ActionForm action=create_jobset_action>
                 <h3>Create a new Jobset</h3>
                 <div class="inputs">
-                    <input type="hidden" name="project_id" value=project/>
+                    <input type="hidden" name="jobset[project_id]" value=project/>
                     <input type="text" name="jobset[name]" id="jobset_name" placeholder="Jobset Name"/>
                     <input type="text" name="jobset[description]" id="jobset_desc" placeholder="Jobset Description"/>
                     <input type="text" name="jobset[flake]" id="jobset_flake_uri" placeholder="Jobset Flake Uri"/>

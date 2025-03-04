@@ -1,14 +1,18 @@
 use core::{error, fmt};
-use std::{collections::HashMap, process::Stdio, str::FromStr};
+use std::{
+    collections::HashMap, os::unix::process::ExitStatusExt, process::Stdio, str::FromStr, sync::Arc,
+};
 
 use axum::Error;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tracing::{debug, error, info};
 
-use tokio::{process::Command, task::JoinHandle};
+use tokio::{process::Command, sync::mpsc::Sender, task::JoinHandle};
 
 use crate::models::{Derivation, Jobset, JobsetID};
+
+use super::super::notifications::EvalDoneNotification;
 
 #[derive(Debug)]
 pub struct EvaluationError {
@@ -36,7 +40,10 @@ impl error::Error for EvaluationError {}
 pub struct Evaluation {}
 
 impl Evaluation {
-    pub async fn new(jobset: &Jobset) -> Result<JoinHandle<()>, EvaluationError> {
+    pub async fn new(
+        sender: Arc<Sender<EvalDoneNotification>>,
+        jobset: &Jobset,
+    ) -> Result<JoinHandle<()>, EvaluationError> {
         if jobset.id.is_none() {
             return Err(EvaluationError::new("Jobset struct has no id!".to_string()));
         }
@@ -47,6 +54,7 @@ impl Evaluation {
         let process = Command::new("nix")
             .arg("eval")
             .arg("--json")
+            .arg("--no-write-lock-file")
             .arg(&jobset.flake)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -61,10 +69,31 @@ impl Evaluation {
 
             let done = Utc::now();
 
+            let mut notification =
+                EvalDoneNotification::new(started, done, false, None, None, jobset_id);
+
             if !status.success() {
-                error!("Nix eval did not finish successfully!");
+                if status.core_dumped() {
+                    notification.set_error(format!(
+                        "Nix eval failed to run successfully: Core dumped with code {}",
+                        status.code().unwrap()
+                    ));
+                } else {
+                    let stderr = String::from_utf8(result.stderr).unwrap();
+                    notification.set_error(format!(
+                        "Nix eval failed to run successfully: Code {} | Stderr: \n{}",
+                        status.code().unwrap(),
+                        stderr
+                    ));
+                }
+
+                let result = sender.send(notification).await;
+                if result.is_err() {
+                    error!("Failed to send notification");
+                }
                 return;
             }
+
             let stdout = String::from_utf8(result.stdout).unwrap();
 
             debug!("stdout: {}", stdout);
@@ -72,7 +101,11 @@ impl Evaluation {
             let value: Result<Value, _> = serde_json::from_str(&stdout);
 
             if value.is_err() {
-                error!("Failed to parse nix eval output: {}", stdout);
+                notification.set_error(format!("Failed to parse nix eval output: {}", stdout));
+                let result = sender.send(notification).await;
+                if result.is_err() {
+                    error!("Failed to send notification");
+                }
                 return;
             }
 
@@ -80,7 +113,13 @@ impl Evaluation {
 
             let derivations = get_derivation_information(&value, jobset_id);
 
-            info!("Got derivations: {:#?}", derivations);
+            let notification =
+                EvalDoneNotification::new(started, done, true, None, Some(derivations), jobset_id);
+
+            let result = sender.send(notification).await;
+            if result.is_err() {
+                error!("Failed to send notification");
+            }
         });
 
         Ok(handle)

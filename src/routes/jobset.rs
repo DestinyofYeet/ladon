@@ -2,10 +2,7 @@ use chrono::{DateTime, Utc};
 use leptos::{prelude::*, task::spawn_local};
 use leptos_router::hooks::use_params_map;
 
-use crate::{
-    models::{Jobset, JobsetState},
-    routes::jobset,
-};
+use crate::models::{Jobset, JobsetState};
 
 #[server]
 pub async fn get_jobsets(id: String) -> Result<Vec<Jobset>, ServerFnError> {
@@ -28,7 +25,11 @@ pub async fn get_jobsets(id: String) -> Result<Vec<Jobset>, ServerFnError> {
 
     let number = number.unwrap();
 
-    let jobsets = state.coordinator.lock().await.get_jobsets(number).await;
+    let jobsets = Jobset::get_all(
+        &*state.coordinator.lock().await.get_db().await.lock().await,
+        number,
+    )
+    .await;
 
     if jobsets.is_err() {
         error!(
@@ -64,7 +65,11 @@ pub async fn get_jobset(id: String) -> Result<Option<Jobset>, ServerFnError> {
 
     let jobset_id = jobset_id.unwrap();
 
-    let jobset = state.coordinator.lock().await.get_jobset(jobset_id).await;
+    let jobset = Jobset::get_single(
+        &*state.coordinator.lock().await.get_db().await.lock().await,
+        jobset_id,
+    )
+    .await;
 
     if jobset.is_err() {
         error!("Failed to fetch jobset: {}", jobset.err().unwrap());
@@ -173,7 +178,7 @@ pub fn Jobset() -> impl IntoView {
                                         <div class="generic_input_form">
                                             <ActionForm action=trigger_jobset_action>
                                                 <div class="inputs">
-                                                    <input type="hidden" name="project_id" value=jobset.project_id.unwrap().to_string()/>
+                                                    <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
                                                     <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
                                                     <input type="submit" value="Trigger jobset"/>
                                                 </div>
@@ -216,8 +221,14 @@ pub fn Jobset() -> impl IntoView {
                             {mk_jobset_entry("Flake URI: ", jobset.flake)}
                             {mk_jobset_entry("Last checked: ", convert_date_to_string(jobset.last_checked))}
                             {mk_jobset_entry("Last evaluated: ", convert_date_to_string(jobset.last_evaluated))}
-                            {mk_jobset_entry("Evaluation took: ", format!("{}", jobset.evaluation_took.unwrap_or(-1)))}
-                            {mk_jobset_entry("State: ", jobset.state.unwrap_or(JobsetState::UNKNOWN).to_string())}
+                            {mk_jobset_entry("Evaluation took: ", convert_seconds_to_minutes(jobset.evaluation_took.unwrap_or(-1)))}
+                            {mk_jobset_entry("State: ", jobset.state.clone().unwrap_or(JobsetState::Unknown).to_string())}
+                            {
+                                match jobset.state {
+                                    Some(JobsetState::EvalFailed) => mk_jobset_entry("Error", jobset.error_message.unwrap()).into_any(),
+                                    _ => view!{}.into_any()
+                                }
+                            }
                         </div>
                     </div>
                 }.into_any()
@@ -229,8 +240,22 @@ pub fn Jobset() -> impl IntoView {
 fn convert_date_to_string(date: Option<DateTime<Utc>>) -> String {
     match date {
         None => "never".to_string(),
-        Some(value) => value.to_rfc3339(),
+        Some(value) => value.format("%H:%M:%S %d.%m.%Y").to_string(),
     }
+}
+
+fn convert_seconds_to_minutes(seconds: i32) -> String {
+    if seconds < 0 {
+        return format!("{} seconds", seconds);
+    }
+    let mut minutes = 0;
+    let mut seconds = seconds;
+    while seconds >= 60 {
+        minutes += 1;
+        seconds -= 60;
+    }
+
+    return format!("{} minute(s) {} seconds", minutes, seconds);
 }
 
 fn mk_jobset_entry(key: &str, value: String) -> impl IntoView {

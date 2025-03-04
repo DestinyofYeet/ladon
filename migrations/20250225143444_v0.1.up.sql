@@ -9,6 +9,7 @@ create table Jobsets (
     check_interval int not null,
     evaluation_took int, -- seconds
     state text, -- JobsetState
+    error_message text, -- Eval error messages
 
     primary key (id),
     foreign key (project_id) references Projects(id)
@@ -22,13 +23,21 @@ create table Projects (
     primary key (id)
 );
 
-create table Derivations (
+create table Evaluations (
     id integer not null,
     jobset_id int not null,
+
+    primary key (id),
+    foreign key (jobset_id) references Jobsets(id)
+);
+
+create table Derivations (
+    id integer not null,
+    evaluation_id int not null,
     attribute_name text not null, -- name of attribute in hydraJobs. like: "systems.main" or "systems.wattson"
     derivation_path text not null,
 
 
     primary key (id)
-    foreign key (jobset_id) references Jobsets(id)
+    foreign key (evaluation_id) references Evaluations(id)
 )
