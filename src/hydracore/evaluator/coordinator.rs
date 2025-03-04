@@ -95,6 +95,11 @@ impl Coordinator {
     }
 
     pub async fn schedule_jobset(&mut self, jobset: &mut Jobset) -> Result<(), EvaluationError> {
+        if jobset.state == Some(JobsetState::EVALUATING) {
+            return Err(EvaluationError::new(
+                "Evaluation already running".to_string(),
+            ));
+        }
         jobset
             .update_state(
                 JobsetState::EVALUATING,

@@ -105,52 +105,12 @@ pub async fn trigger_jobset(project_id: String, jobset_id: String) -> Result<(),
         .await;
 
     if result.is_err() {
-        error!("Failed to schedule jobset: {}", result.err().unwrap());
-        return Err(ServerFnError::new("Failed to schedule jobset!"));
+        let err = result.err().unwrap().to_string();
+        error!("Failed to schedule jobset: {}", err);
+        return Err(ServerFnError::new(err));
     }
 
-    redirect(&format!("/project/{}/jobset/{}", project_id, jobset_id));
     Ok(())
-}
-
-#[component]
-pub fn TriggerJobset() -> impl IntoView {
-    let params = use_params_map();
-
-    let project_id = params.read_untracked().get("proj-id").unwrap_or_default();
-    let jobset_id = params.read_untracked().get("jobset-id").unwrap_or_default();
-
-    let trigger_jobset = OnceResource::new(trigger_jobset(project_id, jobset_id));
-
-    view! {
-        <Suspense
-            fallback=move || view! {<p>"Processing request..."</p>}
-
-        >
-
-        {move || {
-            match trigger_jobset.get() {
-                Some(Err(e)) => {
-                    let msg = match e {
-                        ServerFnError::ServerError(msg) => msg,
-                        _ => e.to_string(),
-                    };
-
-                    view! {
-                        <p class="error">"Failed to trigger jobset: " {msg}</p>
-                    }.into_any()
-                },
-
-                _ => {
-                    view! {
-                        <p>"Successfully triggered jobset!"</p>
-                    }.into_any()
-                }
-            }
-        }}
-
-        </Suspense>
-    }
 }
 
 #[component]
@@ -160,12 +120,25 @@ pub fn Jobset() -> impl IntoView {
     let project_id = params.read_untracked().get("proj-id").unwrap_or_default();
     let jobset_id = params.read_untracked().get("jobset-id").unwrap_or_default();
 
-    let jobsetOnce = OnceResource::new(get_jobset(jobset_id.clone()));
+    let (input, _set_input) = signal(jobset_id.clone());
+
+    let jobset_data = Resource::new(
+        move || (input.get()),
+        |input| async move { get_jobset(input).await },
+    );
+
+    let trigger_jobset_action = ServerAction::<TriggerJobset>::new();
+
+    Effect::new(move |_| {
+        if let Some(Ok(_)) = trigger_jobset_action.value().get() {
+            jobset_data.refetch();
+        }
+    });
 
     view! {
         <Suspense fallback=move || view! {<p>"Loading jobset data..."</p>}>
             {move || {
-                let jobset = jobsetOnce.get();
+                let jobset = jobset_data.get();
 
                 if jobset.is_none() {
                     return view! {<p>"Error: Failed to load jobset!"</p>}.into_any();
@@ -196,9 +169,46 @@ pub fn Jobset() -> impl IntoView {
                             <div class="dropdown">
                                 <span>"Actions"</span>
                                 <div class="dropdown_content">
-                                    <a href=format!("/project/{}/jobset/{}/trigger", project_id, jobset_id)>"Trigger jobset"</a>
+                                    <div class="dropdown_group">
+                                        <div class="generic_input_form">
+                                            <ActionForm action=trigger_jobset_action>
+                                                <div class="inputs">
+                                                    <input type="hidden" name="project_id" value=jobset.project_id.unwrap().to_string()/>
+                                                    <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
+                                                    <input type="submit" value="Trigger jobset"/>
+                                                </div>
+                                            </ActionForm>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="jobset_trigger_result">
+                            {move || {
+                                match trigger_jobset_action.value().get() {
+                                    Some(Err(e)) => {
+                                        let msg = match e {
+                                            ServerFnError::ServerError(msg) => msg,
+                                            _ => e.to_string(),
+                                        };
+
+                                        view! {
+                                            <p class="failed">"Failed to trigger jobset: "{msg}</p>
+                                        }.into_any()
+                                    },
+
+                                    None => {
+                                        view! {
+                                        }.into_any()
+                                    }
+
+                                    _ => {
+                                       view! {
+                                            <p class="success">"Successfully triggered jobset"</p>
+                                       }.into_any()
+                                    }
+                                }
+                            }}
                         </div>
                         <div class="statistics">
                             {mk_jobset_entry("Name: ", jobset.name)}

@@ -91,7 +91,9 @@ pub fn Project() -> impl IntoView {
                         <div class="dropdown">
                             <span>Actions</span>
                             <div class="dropdown_content">
-                                <a href=format!("{}/create-jobset", project)>"Create jobset"</a>
+                                <div class="dropdown_group">
+                                    <a href=format!("{}/create-jobset", project)>"Create jobset"</a>
+                                </div>
                             </div>
                         </div>
                         <Suspense fallback=move || view! { <p>"Loading jobsets..."</p>}>

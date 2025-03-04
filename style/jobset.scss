@@ -23,4 +23,14 @@
     }
   }
 
+  .jobset_trigger_result {
+    .failed {
+      color: red;
+    } 
+
+    .success {
+      color: green;
+    }
+  }
+
 }

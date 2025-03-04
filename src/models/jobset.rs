@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub type JobsetID = i32;
 
 #[cfg_attr(feature = "ssr", derive(sqlx::Type))]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum JobsetState {
     UNKNOWN,
     IDLE,
