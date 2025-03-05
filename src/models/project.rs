@@ -77,4 +77,23 @@ impl Project {
 
         Ok(())
     }
+
+    pub async fn delete(&self, db: &DB) -> Result<(), DBError> {
+        let mut conn = db.get_conn().await?;
+
+        let id = self.id.unwrap();
+
+        _ = query!(
+            "
+                delete from Projects
+                where id = ?
+            ",
+            id
+        )
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(())
+    }
 }

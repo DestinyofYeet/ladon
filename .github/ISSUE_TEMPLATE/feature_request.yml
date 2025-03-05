@@ -1,6 +1,6 @@
 name: "Feature Request"
 about: "Feature Request form"
-title: "[Feat]:"
+title: "[Feat]: "
 ref: "main"
 labels:
 - feature

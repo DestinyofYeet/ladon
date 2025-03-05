@@ -240,8 +240,8 @@ impl Jobset {
                 if let Some($val) = diff.$field {
                     self.$field = $assign_expr;
                     separated
-                        .push_unseparated(concat!($column, " = "))
-                        .push_bind(&self.$field);
+                        .push(concat!($column, " = "))
+                        .push_bind_unseparated(&self.$field);
                     has_updates = true;
                 }
             };
@@ -284,6 +284,25 @@ impl Jobset {
         if result.is_err() {
             return Err(DBError::new(result.err().unwrap().to_string()));
         }
+
+        Ok(())
+    }
+
+    pub async fn delete(&mut self, db: &DB) -> Result<(), DBError> {
+        let mut conn = db.get_conn().await?;
+
+        let id = self.id.unwrap();
+
+        _ = query!(
+            "
+                delete from Jobsets
+                where id = ?
+           ",
+            id
+        )
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
 
         Ok(())
     }

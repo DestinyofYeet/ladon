@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use leptos::prelude::*;
 use leptos_router::{hooks::use_params_map, params::Params};
 
@@ -12,9 +10,17 @@ struct ProjectParams {
     name: Option<String>,
 }
 
+#[cfg(feature = "ssr")]
+use {
+    crate::state::State,
+    axum::http::StatusCode,
+    leptos_axum::{redirect, ResponseOptions},
+    std::sync::Arc,
+    tracing::error,
+};
+
 #[server]
 pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
-    use crate::state::State;
     let state: Arc<State> = expect_context();
 
     let coordinator = state.coordinator.lock().await;
@@ -28,10 +34,6 @@ pub async fn get_projects() -> Result<Vec<Project>, ServerFnError> {
 
 #[server]
 pub async fn get_project(id: String) -> Result<Option<Project>, ServerFnError> {
-    use crate::state::State;
-    use std::sync::Arc;
-    use tracing::error;
-
     let state: Arc<State> = expect_context();
 
     let number = id.parse::<i32>();
@@ -60,6 +62,35 @@ pub async fn get_project(id: String) -> Result<Option<Project>, ServerFnError> {
     Ok(result.unwrap())
 }
 
+#[server]
+pub async fn delete_project(project_id: String) -> Result<(), ServerFnError> {
+    let state: Arc<State> = expect_context();
+
+    let project = get_project(project_id.clone()).await?;
+
+    let response_opts: ResponseOptions = expect_context();
+
+    if project.is_none() {
+        response_opts.set_status(StatusCode::NOT_FOUND);
+        error!("Failed to find project: {}", project_id);
+        return Err(ServerFnError::new("Failed to find project!"));
+    }
+
+    let project = project.unwrap();
+
+    _ = project
+        .delete(&*state.coordinator.lock().await.get_db().await.lock().await)
+        .await
+        .map_err(|e| {
+            error!("Failed to delete project: {}", e.to_string());
+            ServerFnError::new("Failed to delete project!")
+        })?;
+
+    redirect("/");
+
+    Ok(())
+}
+
 fn make_td_entry(proj_id: &str, id: &i32, string: &str) -> impl IntoView {
     let url = format!("/project/{}/jobset/{}", proj_id, id);
     view! {
@@ -72,6 +103,8 @@ pub fn Project() -> impl IntoView {
     let params = use_params_map();
 
     let project = params.read_untracked().get("proj-id").unwrap_or_default();
+
+    let delete_project_action = ServerAction::<DeleteProject>::new();
 
     let jobsets = OnceResource::new(get_jobsets(project.clone()));
 
@@ -90,6 +123,7 @@ pub fn Project() -> impl IntoView {
                     }.into_any()
                 } else {
                     let data = data.unwrap().as_ref().unwrap();
+                    let proj_id = project.clone();
                     view!{
                         <h4 class="title">"Project " {data.name.clone()}</h4>
                         <div class="dropdown">
@@ -101,7 +135,17 @@ pub fn Project() -> impl IntoView {
                             </div>
                             <div class="dropdown_content">
                                 <div class="dropdown_group">
-                                    <a href=format!("{}/create-jobset", project)>"Create jobset"</a>
+                                    <a href=format!("{}/create-jobset", proj_id)>"Create jobset"</a>
+                                </div>
+                                <div class="dropdown_group">
+                                    <div class="generic_input_form">
+                                        <ActionForm action=delete_project_action>
+                                            <div class="inputs">
+                                                <input type="hidden" name="project_id" value=proj_id/>
+                                                <input type="submit" value="Delete project"/>
+                                            </div>
+                                        </ActionForm>
+                                    </div>
                                 </div>
                             </div>
                         </div>
