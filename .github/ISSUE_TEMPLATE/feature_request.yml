@@ -1,0 +1,15 @@
+name: "Feature Request"
+about: "Feature Request form"
+title: "[Feat]:"
+ref: "main"
+labels:
+- feature
+
+body:
+  - type: textarea
+    id: content
+    attributes:
+      label: Feature
+      description: Please describe the feature
+    validations:
+      required: true
