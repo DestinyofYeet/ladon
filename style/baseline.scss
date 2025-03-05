@@ -12,6 +12,13 @@ body {
     text-decoration: underline;
   }
 
+  .title {
+    svg {
+      fill: colors.$primary_text;
+      vertical-align: -3px;
+    }
+  }
+
   position: relative;
   display: inline-block;
 }
@@ -36,6 +43,10 @@ body {
   box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
   padding: 10px 10px;
   z-index: 1;
+
+  a:hover {
+    color: colors.$secondary_text;
+  }
 }
 
 .topnav {

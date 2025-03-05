@@ -28,6 +28,10 @@
       background-color: colors.$secondary_background;
     }
   }
+
+  .submit_button:hover {
+    color: colors.$secondary_text;
+  }
 }
 
 .generic_input_form_response {
