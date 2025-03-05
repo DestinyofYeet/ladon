@@ -12,7 +12,9 @@ create table Jobsets (
     error_message text, -- Eval error messages
 
     primary key (id),
-    foreign key (project_id) references Projects(id)
+    foreign key (project_id)
+        references Projects(id)
+        on delete cascade
 );
 
 create table Projects (
@@ -28,7 +30,9 @@ create table Evaluations (
     jobset_id int not null,
 
     primary key (id),
-    foreign key (jobset_id) references Jobsets(id)
+    foreign key (jobset_id) 
+        references Jobsets(id)
+        on delete cascade
 );
 
 create table Jobs (
@@ -39,5 +43,7 @@ create table Jobs (
 
 
     primary key (id)
-    foreign key (evaluation_id) references Evaluations(id)
+    foreign key (evaluation_id) 
+        references Evaluations(id)
+        on delete cascade
 )

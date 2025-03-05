@@ -1,8 +1,42 @@
 use chrono::{DateTime, Utc};
-use leptos::{prelude::*, task::spawn_local};
+use leptos::{prelude::*, server_fn::ServerFn, task::spawn_local};
 use leptos_router::hooks::use_params_map;
+use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::models::{Jobset, JobsetState};
+
+#[server]
+pub async fn delete_jobset(project_id: String, jobset_id: String) -> Result<(), ServerFnError> {
+    use crate::state::State;
+    use axum::http::StatusCode;
+    use leptos_axum::{redirect, ResponseOptions};
+    use std::sync::Arc;
+    use tracing::error;
+
+    let state: Arc<State> = expect_context();
+    let response_opts: ResponseOptions = expect_context();
+
+    let jobset = get_jobset(jobset_id).await?;
+
+    if jobset.is_none() {
+        response_opts.set_status(StatusCode::NOT_FOUND);
+        return Err(ServerFnError::new("Failed to find jobset!"));
+    }
+
+    let mut jobset = jobset.unwrap();
+
+    _ = jobset
+        .delete(&*state.coordinator.lock().await.get_db().await.lock().await)
+        .await
+        .map_err(|e| {
+            error!("Failed to delete jobset: {}", e.to_string());
+            ServerFnError::new("Failed to delete jobset!")
+        })?;
+
+    redirect(&format!("/project/{}", project_id));
+
+    Ok(())
+}
 
 #[server]
 pub async fn get_jobsets(id: String) -> Result<Vec<Jobset>, ServerFnError> {
@@ -19,7 +53,7 @@ pub async fn get_jobsets(id: String) -> Result<Vec<Jobset>, ServerFnError> {
 
     if number.is_err() {
         response_opts.set_status(StatusCode::BAD_REQUEST);
-        error!("Invalid jobset given");
+        error!("Invalid project id given");
         return Err(ServerFnError::new("Failed to find project!"));
     }
 
@@ -133,6 +167,7 @@ pub fn Jobset() -> impl IntoView {
     );
 
     let trigger_jobset_action = ServerAction::<TriggerJobset>::new();
+    let delete_jobset_action = ServerAction::<DeleteJobset>::new();
 
     Effect::new(move |_| {
         if let Some(Ok(_)) = trigger_jobset_action.value().get() {
@@ -185,9 +220,20 @@ pub fn Jobset() -> impl IntoView {
                                                 <div class="inputs">
                                                     <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
                                                     <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
-                                                    <input type="submit" value="Trigger jobset" class="submit_button"/>
+                                                    <input type="submit" value="Trigger jobset"/>
                                                 </div>
                                             </ActionForm>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown_group">
+                                        <div class="generic_input_form">
+                                           <ActionForm action=delete_jobset_action>
+                                                <div class="inputs">
+                                                    <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
+                                                    <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
+                                                    <input type="submit" value="Delete jobset"/>
+                                                </div>
+                                           </ActionForm>
                                         </div>
                                     </div>
                                 </div>
@@ -202,21 +248,38 @@ pub fn Jobset() -> impl IntoView {
                                             _ => e.to_string(),
                                         };
 
-                                        view! {
+                                        return view! {
                                             <p class="failed">"Failed to trigger jobset: "{msg}</p>
-                                        }.into_any()
+                                        }.into_any();
                                     },
 
                                     None => {
-                                        view! {
-                                        }.into_any()
+                                        return view! {
+                                        }.into_any();
                                     }
 
                                     _ => {
-                                       view! {
+                                       return view! {
                                             <p class="success">"Successfully triggered jobset"</p>
-                                       }.into_any()
+                                       }.into_any();
                                     }
+                                }
+
+                                match delete_jobset_action.value().get() {
+                                    Some(Err(e)) => {
+                                        let msg = match e {
+                                            ServerFnError::ServerError(msg) => msg,
+                                            _ => e.to_string(),
+                                        };
+
+                                        return view! {
+                                            <p class="failed">"Failed to delete jobset: "{msg}</p>
+                                        }.into_any();
+                                    },
+
+                                    None => return view!{}.into_any(),
+
+                                    _ => return view!{}.into_any(),
                                 }
                             }}
                         </div>
