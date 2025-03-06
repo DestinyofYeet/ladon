@@ -5,6 +5,12 @@ use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::models::{Jobset, JobsetState};
 
+stylance::import_crate_style!(
+    #[allow(dead_code)]
+    jobset_style,
+    "style/jobset.module.scss"
+);
+
 #[server]
 pub async fn delete_jobset(project_id: String, jobset_id: String) -> Result<(), ServerFnError> {
     use crate::state::State;
@@ -204,8 +210,8 @@ pub fn Jobset() -> impl IntoView {
                 let jobset = jobset.unwrap();
 
                 view! {
-                    <div class="viewjobset">
-                        <div class="action">
+                    <div class=jobset_style::view>
+                        <div class=jobset_style::action>
                             <div class="dropdown">
                                 <div class="title">
                                     <span>Actions</span>
@@ -239,7 +245,7 @@ pub fn Jobset() -> impl IntoView {
                                 </div>
                             </div>
                         </div>
-                        <div class="jobset_trigger_result">
+                        <div class=jobset_style::trigger_result>
                             {move || {
                                 match trigger_jobset_action.value().get() {
                                     Some(Err(e)) => {
@@ -283,7 +289,7 @@ pub fn Jobset() -> impl IntoView {
                                 }
                             }}
                         </div>
-                        <div class="statistics">
+                        <div class=jobset_style::statistics>
                             {mk_jobset_entry("Name: ", jobset.name)}
                             {mk_jobset_entry("Description: ", jobset.description)}
                             {mk_jobset_entry("Flake URI: ", jobset.flake)}
@@ -329,10 +335,10 @@ fn convert_seconds_to_minutes(seconds: i32) -> String {
 
 fn mk_jobset_entry(key: &str, value: String) -> impl IntoView {
     view! {
-        <div class="key">
+        <div class=jobset_style::key>
             <p>{key.to_string()}</p>
         </div>
-        <div class="value">
+        <div class=jobset_style::value>
             <p>{value}</p>
         </div>
     }

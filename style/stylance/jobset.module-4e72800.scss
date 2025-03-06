@@ -1,40 +1,42 @@
-.viewjobset {
+@use "../generics/input.scss";
+
+.view-4e72800 {
   padding-left: 10%;
   padding-top: 2%;
   padding-right: 10%;
 
-  .action {
+  .action-4e72800 {
     display: flex;
     justify-content: flex-start;
   }
 
-  .statistics {
+  .statistics-4e72800 {
     display: grid;
     grid-template-columns: auto auto;
 
-    .value {
+    .value-4e72800 {
       text-align: left;
       padding-left: 10%;
     }
 
-    .key {
+    .key-4e72800 {
       text-align: right;
       padding-right: 10%;
     }
   }
 
-  .jobset_trigger_result {
-    .failed {
+  .trigger_result-4e72800 {
+    .failed-4e72800 {
       color: red;
     } 
 
-    .success {
+    .success-4e72800 {
       color: green;
     }
   }
 
-  .dropdown_content {
-    .generic_input_form {
+  .dropdown_content-4e72800 {
+    .generic_input_form-4e72800 {
       input[type="submit"] {
         width: auto;
         font-size: 1em;

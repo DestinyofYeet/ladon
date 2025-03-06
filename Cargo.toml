@@ -22,6 +22,7 @@ chrono = { version = "0.4.40", features = ["serde"] }
 sqlx = { version = "0.8.3", features = ["runtime-tokio", "sqlite", "chrono"], optional = true }
 clap = { version = "4.5.31", features = ["derive"], optional = true }
 tracing-subscriber = { version = "0.3.19", optional = true }
+stylance = { version = "0.5.5" }
 
 [features]
 hydrate = [
@@ -110,3 +111,11 @@ lib-default-features = false
 #
 # Optional. Defaults to "release".
 lib-profile-release = "wasm-release"
+
+[package.metadata.stylance]
+
+output_dir = "./style"
+
+folders = ["./style"]
+
+extensions = [".module.scss"]

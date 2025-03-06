@@ -19,6 +19,7 @@
           sqlite.dev
           sqlx-cli
           rustfmt
+          stylance-cli
         ];
 
         PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";

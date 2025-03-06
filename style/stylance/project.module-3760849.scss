@@ -1,7 +1,9 @@
-@use "generics/table.scss";
-@use "colors.scss";
+@use "../generics/table.scss";
+@use "../generics/input.scss";
+@use "../colors.scss";
+@use "../baseline.scss";
 
-.project {
+.project-3760849 {
   text-align: left;
   padding-left: 5em;
 
@@ -23,8 +25,7 @@
 
     table {
       padding: 10px;
-      border-color: colors.$background_two;
-      border: solid 8px;
+      background-color: colors.$background_two;
     }
   }
 
