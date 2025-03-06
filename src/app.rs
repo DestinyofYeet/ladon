@@ -130,10 +130,10 @@ fn HomePage() -> impl IntoView {
                     //    <Route path=path!("") view=|| {println!("Tried accessing /project. "); routes::NotFound}/> // dunno if needed
                     //</ParentRoute>
                     <Route path=path!("/") view=routes::Home/>
-                    <Route path=path!("/create-project") view=routes::CreateProject/>
-                    <Route path=path!("/project/:proj-id") view=routes::Project/>
-                    <Route path=path!("/project/:proj-id/create-jobset") view=routes::jobsets::CreateJobset/>
-                    <Route path=path!("/project/:proj-id/jobset/:jobset-id") view=routes::jobsets::Jobset/>
+                    <Route path=path!("/create-project") view=routes::project::CreateProject/>
+                    <Route path=path!("/project/:proj-id") view=routes::project::Project/>
+                    <Route path=path!("/project/:proj-id/create-jobset") view=routes::jobset::CreateJobset/>
+                    <Route path=path!("/project/:proj-id/jobset/:jobset-id") view=routes::jobset::Jobset/>
                 </Routes>
             </main>
         </Router>

@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos::{component, view, IntoView};
 
-use crate::routes::get_projects;
+use crate::routes::project::get_projects;
 
 fn make_td_entry(id: &i32, string: &str) -> impl IntoView {
     view! {
