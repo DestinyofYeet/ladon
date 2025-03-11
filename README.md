@@ -22,6 +22,16 @@ PS: Sorry for the Arc<Mutex<\T>> hell
 # Todos
 See: https://git.ole.blue/ole/hydra-rs/projects
 
+# How to hack
+```
+nix flake develop # or direnv allow
+cargo leptos watch -- -d ./tmp
+```
+You also need stylance for the css
+```
+stylance -w ./
+```
+
 ## Idea
 
 1. Call `nix eval flakeUri --json` in order to get json output. For example:

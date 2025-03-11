@@ -5,11 +5,9 @@ use leptos_router::{
     path,
 };
 
-use leptos::task::spawn_local;
+stylance::import_crate_style!(app_style, "style/app.module.scss");
 
-use tracing::info;
-
-use crate::{routes, state};
+use crate::routes;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -98,9 +96,9 @@ fn HomePage() -> impl IntoView {
     view! {
         <Router>
             <nav> // navbar
-                <div class="topnav">
-                    <a class="hydra" href="/">Hydra-rs</a>
-                    <div class="entries">
+                <div class=app_style::topnav>
+                    <a class=app_style::hydra href="/">Hydra-rs</a>
+                    <div class=app_style::entries>
                         <a href="jobsets">Jobsets</a>
                         <a href="dashboard">Dashboard</a>
                         <div class="dropdown">
@@ -130,10 +128,12 @@ fn HomePage() -> impl IntoView {
                     //    <Route path=path!("") view=|| {println!("Tried accessing /project. "); routes::NotFound}/> // dunno if needed
                     //</ParentRoute>
                     <Route path=path!("/") view=routes::Home/>
-                    <Route path=path!("/create-project") view=routes::CreateProject/>
-                    <Route path=path!("/project/:proj-id") view=routes::Project/>
-                    <Route path=path!("/project/:proj-id/create-jobset") view=routes::jobsets::CreateJobset/>
-                    <Route path=path!("/project/:proj-id/jobset/:jobset-id") view=routes::jobsets::Jobset/>
+                    <Route path=path!("/create-project") view=routes::project::CreateProject/>
+                    <Route path=path!("/project/:proj-id") view=routes::project::Project/>
+                    <Route path=path!("/project/:proj-id/edit") view=routes::project::EditProject/>
+                    <Route path=path!("/project/:proj-id/create-jobset") view=routes::jobset::CreateJobset/>
+                    <Route path=path!("/project/:proj-id/jobset/:jobset-id") view=routes::jobset::Jobset/>
+                    <Route path=path!("/project/:proj-id/jobset/:jobset-id/edit") view=routes::jobset::EditJobset/>
                 </Routes>
             </main>
         </Router>

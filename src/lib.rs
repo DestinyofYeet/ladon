@@ -6,6 +6,8 @@ mod routes;
 
 mod models;
 
+mod components;
+
 #[cfg(feature = "ssr")]
 pub mod hydracore;
 

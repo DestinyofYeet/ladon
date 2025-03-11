@@ -1,6 +1,6 @@
-@use "colors.scss";
+@use "../generics/input.scss";
 
-.viewjobset {
+.view {
   padding-left: 10%;
   padding-top: 2%;
   padding-right: 10%;
@@ -25,13 +25,24 @@
     }
   }
 
-  .jobset_trigger_result {
+  .trigger_result {
     .failed {
       color: red;
     } 
 
     .success {
       color: green;
+    }
+  }
+
+  .dropdown_content {
+    .generic_input_form {
+      input[type="submit"] {
+        width: auto;
+        font-size: 1em;
+        height: 35px;
+        padding: 0.3vw;
+      }
     }
   }
 }

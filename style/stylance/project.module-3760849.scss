@@ -1,0 +1,32 @@
+@use "../generics/table.scss";
+@use "../generics/input.scss";
+@use "../colors.scss";
+@use "../baseline.scss";
+
+.project-3760849 {
+  text-align: left;
+  padding-left: 5em;
+
+  .dropdown_content {
+    text-align: center;
+
+    .generic_input_form {
+      input[type="submit"] {
+        width: auto;
+        font-size: 1em;
+        height: 35px;
+        padding: 0.3vw;
+      }
+    }
+  }
+
+  .generic_table {
+    text-align: center;  
+
+    table {
+      padding: 10px;
+      background-color: colors.$background_two;
+    }
+  }
+
+}

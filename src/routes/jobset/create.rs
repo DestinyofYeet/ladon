@@ -70,7 +70,7 @@ pub fn CreateJobset() -> impl IntoView {
                     <input type="text" name="jobset[flake]" id="jobset_flake_uri" placeholder="Jobset Flake Uri"/>
                     <label for="jobset_check_interval">"Jobset check interval"</label>
                     <input type="number" name="jobset[check_interval]" id="jobset_check_interval" placeholder="Jobset check interval" value=0/>
-                    <input type="submit" value="Create project"/>
+                    <input type="submit" value="Create jobset"/>
                 </div>
             </ActionForm>
         </div>

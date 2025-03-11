@@ -3,7 +3,9 @@ use leptos_router::{hooks::use_params_map, params::Params};
 
 use crate::models::{Jobset, Project};
 
-use crate::routes::jobsets::get_jobsets;
+use crate::routes::jobset::get_jobsets;
+
+stylance::import_crate_style!(my_style, "style/project.module.scss");
 
 #[derive(Params, PartialEq)]
 struct ProjectParams {
@@ -108,12 +110,14 @@ pub fn Project() -> impl IntoView {
 
     let jobsets = OnceResource::new(get_jobsets(project.clone()));
 
+    //println!("Style is: {}", my_style::project);
+
     view! {
+        <div class=my_style::project>
         <Await
                 future=get_project(project.clone())
             let:data
         >
-            <div class="project">
             {
                 let data = data.as_ref();
 
@@ -136,6 +140,9 @@ pub fn Project() -> impl IntoView {
                             <div class="dropdown_content">
                                 <div class="dropdown_group">
                                     <a href=format!("{}/create-jobset", proj_id)>"Create jobset"</a>
+                                </div>
+                                <div class="dropdown_group">
+                                    <a href=format!("{}/edit", proj_id)>"Edit project"</a>
                                 </div>
                                 <div class="dropdown_group">
                                     <div class="generic_input_form">
@@ -198,7 +205,7 @@ pub fn Project() -> impl IntoView {
                     }.into_any()
                 }
              }
-            </div>
         </Await>
+    </div>
     }
 }
