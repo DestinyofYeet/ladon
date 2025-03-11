@@ -142,6 +142,9 @@ pub fn Project() -> impl IntoView {
                                     <a href=format!("{}/create-jobset", proj_id)>"Create jobset"</a>
                                 </div>
                                 <div class="dropdown_group">
+                                    <a href=format!("{}/edit", proj_id)>"Edit project"</a>
+                                </div>
+                                <div class="dropdown_group">
                                     <div class="generic_input_form">
                                         <ActionForm action=delete_project_action>
                                             <div class="inputs">

@@ -3,7 +3,10 @@ use leptos::{prelude::*, server_fn::ServerFn, task::spawn_local};
 use leptos_router::hooks::use_params_map;
 use serde::{de::DeserializeOwned, Deserialize};
 
-use crate::models::{Jobset, JobsetState};
+use crate::{
+    components::go_back::GoBack,
+    models::{Jobset, JobsetState},
+};
 
 stylance::import_crate_style!(
     #[allow(dead_code)]
@@ -182,6 +185,7 @@ pub fn Jobset() -> impl IntoView {
     });
 
     view! {
+        <GoBack url=format!("/project/{}", project_id) text="project".to_string()/>
         <Suspense fallback=move || view! {<p>"Loading jobset data..."</p>}>
             {move || {
                 let jobset = jobset_data.get();
@@ -220,6 +224,9 @@ pub fn Jobset() -> impl IntoView {
                                     </svg>
                                 </div>
                                 <div class="dropdown_content">
+                                    <div class="dropdown_group">
+                                        <a href=format!("/project/{}/jobset/{}/edit", project_id, jobset_id)>"Edit jobset"</a>
+                                    </div>
                                     <div class="dropdown_group">
                                         <div class="generic_input_form">
                                             <ActionForm action=trigger_jobset_action>

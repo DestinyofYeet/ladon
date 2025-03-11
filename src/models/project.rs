@@ -96,4 +96,26 @@ impl Project {
 
         Ok(())
     }
+
+    pub async fn update(&self, db: &DB) -> Result<(), DBError> {
+        let mut conn = db.get_conn().await?;
+
+        let id = self.id.unwrap();
+
+        _ = query!(
+            "
+                update Projects
+                set name = ?, description = ?
+                where id = ?
+            ",
+            self.name,
+            self.description,
+            id
+        )
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(())
+    }
 }
