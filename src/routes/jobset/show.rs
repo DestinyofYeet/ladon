@@ -10,7 +10,7 @@ use crate::{
 
 stylance::import_crate_style!(
     #[allow(dead_code)]
-    jobset_style,
+    style,
     "style/jobset.module.scss"
 );
 
@@ -214,8 +214,8 @@ pub fn Jobset() -> impl IntoView {
                 let jobset = jobset.unwrap();
 
                 view! {
-                    <div class=jobset_style::view>
-                        <div class=jobset_style::action>
+                    <div class=style::view>
+                        <div class=style::action>
                             <div class="dropdown">
                                 <div class="title">
                                     <span>Actions</span>
@@ -252,7 +252,7 @@ pub fn Jobset() -> impl IntoView {
                                 </div>
                             </div>
                         </div>
-                        <div class=jobset_style::trigger_result>
+                        <div class=style::trigger_result>
                             {move || {
                                 match trigger_jobset_action.value().get() {
                                     Some(Err(e)) => {
@@ -296,7 +296,7 @@ pub fn Jobset() -> impl IntoView {
                                 }
                             }}
                         </div>
-                        <div class=jobset_style::statistics>
+                        <div class=style::statistics>
                             {mk_jobset_entry("Name: ", jobset.name)}
                             {mk_jobset_entry("Description: ", jobset.description)}
                             {mk_jobset_entry("Flake URI: ", jobset.flake)}
@@ -342,10 +342,10 @@ fn convert_seconds_to_minutes(seconds: i32) -> String {
 
 fn mk_jobset_entry(key: &str, value: String) -> impl IntoView {
     view! {
-        <div class=jobset_style::key>
+        <div class=style::key>
             <p>{key.to_string()}</p>
         </div>
-        <div class=jobset_style::value>
+        <div class=style::value>
             <p>{value}</p>
         </div>
     }

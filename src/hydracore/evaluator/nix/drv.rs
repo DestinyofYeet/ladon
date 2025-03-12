@@ -11,6 +11,8 @@ use tracing::{debug, error, info};
 
 use crate::models::Job;
 
+pub type DrvDepTree = DependencyTree<DrvBasic>;
+
 #[derive(Debug)]
 pub struct DerivationError {
     error: String,
@@ -118,13 +120,24 @@ impl DrvBasic {
 }
 
 #[derive(Debug, Clone)]
-pub struct DrvBuildingPlan {
-    pub current: DrvBasic,
-    pub dependencies: Vec<DrvBuildingPlan>,
+pub struct DependencyTree<T> {
+    pub(crate) children: Vec<DependencyTree<T>>,
+    pub(crate) data: T,
+    pub(crate) built: bool,
 }
 
-impl DrvBuildingPlan {
-    pub async fn generate(derivation_path: &str) -> Result<DrvBuildingPlan, DerivationError> {
+impl<T> DependencyTree<T> {
+    pub fn new(data: T) -> Self {
+        Self {
+            children: Vec::new(),
+            data,
+            built: false,
+        }
+    }
+}
+
+impl DrvDepTree {
+    pub async fn generate(derivation_path: &str) -> Result<DrvDepTree, DerivationError> {
         debug!("Generating build plan for '{}'", derivation_path);
         let (stdout, _) = run_nix_derivation_show(derivation_path).await?;
 
@@ -141,12 +154,12 @@ impl DrvBuildingPlan {
 
         let input_drvs = value.get("inputDrvs").unwrap();
 
-        let inputs: Vec<DrvBuildingPlan> = try_join_all(
+        let inputs: Vec<DependencyTree<DrvBasic>> = try_join_all(
             input_drvs
                 .as_object()
                 .unwrap()
                 .keys()
-                .map(|key| DrvBuildingPlan::generate(&key)),
+                .map(|key| DependencyTree::generate(&key)),
         )
         .await?;
 
@@ -157,9 +170,9 @@ impl DrvBuildingPlan {
 
         debug!("Done generating build plan for '{}'", derivation_path);
 
-        Ok(DrvBuildingPlan {
-            current,
-            dependencies: inputs,
-        })
+        let mut tree = DependencyTree::new(current);
+        tree.children = inputs;
+
+        Ok(tree)
     }
 }

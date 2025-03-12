@@ -21,6 +21,7 @@
           rustfmt
           stylance-cli
           clippy
+          vscode-langservers-extracted
         ];
 
         PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";

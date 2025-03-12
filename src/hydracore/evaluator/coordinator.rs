@@ -1,7 +1,7 @@
 use std::{process::ExitStatus, sync::Arc};
 
 use crate::{
-    hydracore::evaluator::nix::drv::DrvBuildingPlan,
+    hydracore::evaluator::nix::drv::DependencyTree,
     models::{Job, Jobset, JobsetDiff, JobsetState},
 };
 
@@ -191,7 +191,7 @@ impl Coordinator {
                 }
 
                 info!("Generating build plan");
-                let building_plan = DrvBuildingPlan::generate(&derivation.derivation_path).await;
+                let building_plan = DependencyTree::generate(&derivation.derivation_path).await;
                 info!("Finished generating build plan!");
             }
         }
