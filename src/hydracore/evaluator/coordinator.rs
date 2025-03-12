@@ -1,10 +1,13 @@
 use std::{process::ExitStatus, sync::Arc};
 
-use crate::models::{Job, Jobset, JobsetDiff, JobsetState};
+use crate::{
+    hydracore::evaluator::nix::drv::DrvBuildingPlan,
+    models::{Job, Jobset, JobsetDiff, JobsetState},
+};
 
 use super::{
     super::db::DB,
-    nix::drv::Drv,
+    nix::drv::DrvBasic,
     nix::eval::{Evaluation, EvaluationError},
     notifications::EvalDoneNotification,
 };
@@ -165,9 +168,9 @@ impl Coordinator {
             let mut derivations = notification.get_derivations_copy().unwrap();
 
             for eval in derivations.iter_mut() {
-                let result = Drv::get_derivation(&eval.derivation_path).await;
+                let result = DrvBasic::get_derivation(&eval.derivation_path).await;
                 if result.is_err() {
-                    error!("Failed to get derivation path!");
+                    error!("Failed to get derivation path: {}", result.err().unwrap());
                     return;
                 }
 
@@ -186,6 +189,10 @@ impl Coordinator {
                     error!("Failed to add derivation to db!");
                     return;
                 }
+
+                info!("Generating build plan");
+                let building_plan = DrvBuildingPlan::generate(&derivation.derivation_path).await;
+                info!("Finished generating build plan!");
             }
         }
     }
