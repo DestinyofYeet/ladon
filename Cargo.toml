@@ -24,6 +24,7 @@ clap = { version = "4.5.31", features = ["derive"], optional = true }
 tracing-subscriber = { version = "0.3.19", optional = true }
 stylance = { version = "0.5.5" }
 futures = "0.3.31"
+async-recursion = "1.1.1"
 
 [features]
 hydrate = [

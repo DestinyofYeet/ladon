@@ -7,8 +7,11 @@ use crate::{
 
 use super::{
     super::db::DB,
-    nix::drv::DrvBasic,
-    nix::eval::{Evaluation, EvaluationError},
+    nix::{
+        build::BuildManager,
+        drv::DrvBasic,
+        eval::{Evaluation, EvaluationError},
+    },
     notifications::EvalDoneNotification,
 };
 
@@ -23,12 +26,14 @@ use tracing::{error, info, trace};
 
 struct CoordinatorData {
     db: Arc<Mutex<DB>>,
+    build_manager: Arc<Mutex<BuildManager>>,
 }
 
 impl CoordinatorData {
-    pub fn new(db: DB) -> Self {
+    pub fn new(db: DB, build_manager: BuildManager) -> Self {
         CoordinatorData {
             db: Arc::new(Mutex::new(db)),
+            build_manager: Arc::new(Mutex::new(build_manager)),
         }
     }
 }
@@ -40,7 +45,7 @@ pub struct Coordinator {
 
 impl Coordinator {
     pub fn new(db: DB) -> Self {
-        let data = Arc::new(Mutex::new(CoordinatorData::new(db)));
+        let data = Arc::new(Mutex::new(CoordinatorData::new(db, BuildManager::new(2))));
 
         let (eval_tx, eval_rx) = mpsc::channel::<EvalDoneNotification>(1);
 
@@ -113,14 +118,14 @@ impl Coordinator {
                     "Failed to get jobset from db: {}",
                     jobset.err().unwrap().to_string()
                 );
-                return;
+                continue;
             }
 
             let jobset = jobset.unwrap();
 
             if jobset.is_none() {
                 error!("Failed to find jobset!");
-                return;
+                continue;
             }
 
             let mut jobset = jobset.unwrap();
@@ -135,10 +140,10 @@ impl Coordinator {
                         "Failed to update jobset: {}",
                         result.err().unwrap().to_string()
                     );
-                    return;
+                    continue;
                 }
 
-                return;
+                continue;
             }
 
             diff.set_state(JobsetState::Idle);
@@ -150,7 +155,7 @@ impl Coordinator {
                     "Failed to update jobset: {}",
                     result.err().unwrap().to_string()
                 );
-                return;
+                continue;
             }
 
             let mut evaluation = crate::models::Evaluation::new(jobset.id.unwrap());
@@ -162,7 +167,7 @@ impl Coordinator {
                     "Failed to add evaluation: {}",
                     result.err().unwrap().to_string()
                 );
-                return;
+                continue;
             }
 
             let mut derivations = notification.get_derivations_copy().unwrap();
@@ -171,7 +176,7 @@ impl Coordinator {
                 let result = DrvBasic::get_derivation(&eval.derivation_path).await;
                 if result.is_err() {
                     error!("Failed to get derivation path: {}", result.err().unwrap());
-                    return;
+                    continue;
                 }
 
                 let result = result.unwrap();
@@ -187,12 +192,23 @@ impl Coordinator {
                 let result = derivation.add_to_db(&db).await;
                 if result.is_err() {
                     error!("Failed to add derivation to db!");
-                    return;
+                    continue;
                 }
 
                 info!("Generating build plan");
                 let building_plan = DependencyTree::generate(&derivation.derivation_path).await;
+                if building_plan.is_err() {
+                    error!(
+                        "Failed to generate build plan: {}",
+                        building_plan.unwrap_err()
+                    );
+                    continue;
+                }
                 info!("Finished generating build plan!");
+
+                let building_plan = building_plan.unwrap();
+
+                // locked.build_manager.lock().await.queue(building_plan).await;
             }
         }
     }
