@@ -1,18 +1,15 @@
 use core::{error, fmt};
-use std::{collections::VecDeque, sync::Arc};
+use std::{process::Stdio, sync::Arc};
 
-use async_recursion::async_recursion;
 use tokio::{
     process::Command,
     sync::{
-        mpsc::{channel, unbounded_channel, UnboundedReceiver, UnboundedSender},
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
         Mutex, Semaphore,
     },
     task::JoinHandle,
 };
-use tracing::{debug, error};
-
-use super::drv::{DependencyTree, DrvBasic, DrvDepTree};
+use tracing::info;
 
 #[derive(Debug)]
 pub struct BuildError {
@@ -38,65 +35,59 @@ pub enum BuildResult {
     Failed,
 }
 
+struct QueueItem {
+    path: String,
+}
+
+struct BuildSettings {
+    max_builders: usize,
+}
+
 pub struct BuildManager {
-    queue: Arc<Mutex<UnboundedSender<DrvDepTree>>>,
-    handle: Option<JoinHandle<()>>,
+    queue: Arc<UnboundedSender<QueueItem>>,
 }
 
 impl BuildManager {
     pub fn new(max_builders: usize) -> Self {
-        let (sender, receiver) = unbounded_channel::<DrvDepTree>();
+        let (sender, receiver) = unbounded_channel::<QueueItem>();
+
+        let settings = BuildSettings { max_builders };
 
         tokio::spawn(async move {
-            BuildManager::run(receiver, max_builders).await;
+            BuildManager::queue_consumer(receiver, settings).await;
         });
-        Self {
-            queue: Arc::new(Mutex::new(sender)),
-            handle: None,
+
+        BuildManager {
+            queue: Arc::new(sender),
         }
     }
 
-    pub async fn queue(&self, tree: DrvDepTree) {
-        let locked = &mut *self.queue.lock().await;
-        locked.send(tree);
+    pub async fn queue(&self, path: String) {
+        self.queue.clone().send(QueueItem { path });
     }
 
-    async fn run(mut queue: UnboundedReceiver<DrvDepTree>, max_builders: usize) {
-        let semaphore = Arc::new(Semaphore::new(max_builders));
-        while let Some(build) = queue.recv().await {
-            debug!("Received new realise request!");
-            let thread_semaphore = semaphore.clone();
-
+    async fn queue_consumer(mut receiver: UnboundedReceiver<QueueItem>, settings: BuildSettings) {
+        let semaphore = Arc::new(Semaphore::new(settings.max_builders));
+        while let Some(item) = receiver.recv().await {
+            let semaphore_clone = semaphore.clone();
             tokio::spawn(async move {
-                #[async_recursion]
-                async fn build_last(tree: &DrvDepTree, semaphore: &Arc<Semaphore>) {
-                    for dependency in tree.children.iter() {
-                        build_last(&dependency, &semaphore).await
-                    }
+                let ticket = semaphore_clone.acquire().await.unwrap();
+                info!("Queuing: {}", item.path);
+                let result = BuildManager::realise(&item.path).await;
 
-                    let ticket = semaphore.acquire().await.unwrap();
-
-                    let result = BuildManager::realise(&tree.data.drv_path).await;
-
-                    drop(ticket);
-
-                    if result.is_err() {
-                        error!("Failed to realise derivation: {}", &tree.data.drv_path);
-                    } else {
-                        debug!("Realised derivation: {}", &tree.data.drv_path);
-                    }
-                }
-
-                build_last(&build, &thread_semaphore).await;
+                drop(ticket);
             });
         }
     }
 
-    /// blocking function
     async fn realise(path: &str) -> Result<(), BuildError> {
         let mut command = Command::new("nix-store")
             .arg("--realise")
             .arg(path)
+            .arg("-j")
+            .arg("1")
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped())
             .spawn()
             .map_err(|e| BuildError::new(e.to_string()))?;
 
@@ -114,6 +105,4 @@ impl BuildManager {
 
         Ok(())
     }
-
-    async fn on_build_result(mut queue: UnboundedReceiver<()>) {}
 }

@@ -195,18 +195,25 @@ impl Coordinator {
                     continue;
                 }
 
-                info!("Generating build plan");
-                let building_plan = DependencyTree::generate(&derivation.derivation_path).await;
-                if building_plan.is_err() {
-                    error!(
-                        "Failed to generate build plan: {}",
-                        building_plan.unwrap_err()
-                    );
-                    continue;
-                }
-                info!("Finished generating build plan!");
+                locked
+                    .build_manager
+                    .lock()
+                    .await
+                    .queue(derivation.derivation_path.clone())
+                    .await;
 
-                let building_plan = building_plan.unwrap();
+                // info!("Generating build plan");
+                // let building_plan = DependencyTree::generate(&derivation.derivation_path).await;
+                // if building_plan.is_err() {
+                //     error!(
+                //         "Failed to generate build plan: {}",
+                //         building_plan.unwrap_err()
+                //     );
+                //     continue;
+                // }
+                // info!("Finished generating build plan!");
+
+                // let building_plan = building_plan.unwrap();
 
                 // locked.build_manager.lock().await.queue(building_plan).await;
             }
