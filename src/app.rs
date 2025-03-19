@@ -97,7 +97,7 @@ fn HomePage() -> impl IntoView {
         <Router>
             <nav> // navbar
                 <div class=app_style::topnav>
-                    <a class=app_style::hydra href="/">Hydra-rs</a>
+                    <a class=app_style::hydra href="/">"Ladon"</a>
                     <div class=app_style::entries>
                         <a href="jobsets">Jobsets</a>
                         <a href="dashboard">Dashboard</a>

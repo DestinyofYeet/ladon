@@ -1,4 +1,4 @@
-use hydra_rs::state;
+use ladon::state;
 
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ struct Args {
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use hydra_rs::hydracore;
+    use ladon::hydracore;
     use tokio::sync::Mutex;
     use tracing::{error, Level};
     use tracing_subscriber;
@@ -52,7 +52,7 @@ async fn main() {
     });
 
     use axum::Router;
-    use hydra_rs::app::*;
+    use ladon::app::*;
     use leptos::logging::log;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
