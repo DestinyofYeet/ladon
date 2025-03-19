@@ -9,7 +9,9 @@ use tokio::{
     },
     task::JoinHandle,
 };
-use tracing::info;
+use tracing::{error, info};
+
+use crate::hydracore::Coordinator;
 
 #[derive(Debug)]
 pub struct BuildError {
@@ -30,17 +32,22 @@ impl fmt::Display for BuildError {
 
 impl error::Error for BuildError {}
 
-pub enum BuildResult {
-    Success,
-    Failed,
+pub struct BuildResult {
+    pub successful: bool,
+    pub id: i32,
+    pub path: String,
 }
 
 struct QueueItem {
     path: String,
+    drv_id: i32,
 }
+
+pub type BuildTx = UnboundedSender<BuildResult>;
 
 struct BuildSettings {
     max_builders: usize,
+    build_tx: BuildTx,
 }
 
 pub struct BuildManager {
@@ -48,10 +55,13 @@ pub struct BuildManager {
 }
 
 impl BuildManager {
-    pub fn new(max_builders: usize) -> Self {
+    pub fn new(build_tx: BuildTx, max_builders: usize) -> Self {
         let (sender, receiver) = unbounded_channel::<QueueItem>();
 
-        let settings = BuildSettings { max_builders };
+        let settings = BuildSettings {
+            max_builders,
+            build_tx,
+        };
 
         tokio::spawn(async move {
             BuildManager::queue_consumer(receiver, settings).await;
@@ -62,20 +72,39 @@ impl BuildManager {
         }
     }
 
-    pub async fn queue(&self, path: String) {
-        self.queue.clone().send(QueueItem { path });
+    pub async fn queue(&self, path: String, id: i32) {
+        self.queue.clone().send(QueueItem { path, drv_id: id });
     }
 
     async fn queue_consumer(mut receiver: UnboundedReceiver<QueueItem>, settings: BuildSettings) {
         let semaphore = Arc::new(Semaphore::new(settings.max_builders));
         while let Some(item) = receiver.recv().await {
             let semaphore_clone = semaphore.clone();
+            let build_tx_clone = settings.build_tx.clone();
             tokio::spawn(async move {
                 let ticket = semaphore_clone.acquire().await.unwrap();
                 info!("Queuing: {}", item.path);
                 let result = BuildManager::realise(&item.path).await;
-
                 drop(ticket);
+
+                let mut message = BuildResult {
+                    id: item.drv_id,
+                    successful: true,
+                    path: item.path,
+                };
+                if result.is_err() {
+                    error!("Failed to realise store path: {}", result.err().unwrap());
+                    message.successful = false;
+                }
+
+                let result = build_tx_clone.send(message);
+
+                if result.is_err() {
+                    error!(
+                        "Failed to send build_done notification: {}",
+                        result.err().unwrap()
+                    )
+                }
             });
         }
     }

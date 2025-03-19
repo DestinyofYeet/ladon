@@ -53,10 +53,10 @@ pub fn App() -> impl IntoView {
     view! {
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/hydra-rs.css"/>
+        <Stylesheet id="leptos" href="/pkg/ladon.css"/>
 
         // sets the document title
-        <Title text="Hydra-rs"/>
+        <Title text="Ladon"/>
 
         // content for this welcome page
         {HomePage()}
