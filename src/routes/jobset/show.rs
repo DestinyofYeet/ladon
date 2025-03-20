@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::{
     components::go_back::GoBack,
-    models::{Jobset, JobsetState},
+    models::{Job, Jobset, JobsetState},
 };
 
 stylance::import_crate_style!(
@@ -161,6 +161,31 @@ pub async fn trigger_jobset(project_id: String, jobset_id: String) -> Result<(),
     Ok(())
 }
 
+#[server]
+pub async fn get_jobs(jobset_id: String) -> Result<Vec<Job>, ServerFnError> {
+    use crate::state::State;
+    use axum::http::StatusCode;
+    use leptos_axum::{redirect, ResponseOptions};
+    use std::sync::Arc;
+    use tracing::error;
+    use tracing::info;
+
+    let state: Arc<State> = expect_context();
+
+    let db = state.coordinator.lock().await.get_db().await;
+
+    let db_locked = db.lock().await;
+
+    let jobs = Job::get_all(&*db_locked, jobset_id.parse().unwrap()).await;
+
+    let jobs = jobs.map_err(|e| {
+        error!("Failed to get jobs: {}", e.to_string());
+        ServerFnError::new("Failed to get jobsets!")
+    })?;
+
+    Ok(jobs)
+}
+
 #[component]
 pub fn Jobset() -> impl IntoView {
     let params = use_params_map();
@@ -177,6 +202,8 @@ pub fn Jobset() -> impl IntoView {
 
     let trigger_jobset_action = ServerAction::<TriggerJobset>::new();
     let delete_jobset_action = ServerAction::<DeleteJobset>::new();
+
+    let jobs_data = OnceResource::new(get_jobs(jobset_id.clone()));
 
     Effect::new(move |_| {
         if let Some(Ok(_)) = trigger_jobset_action.value().get() {
@@ -311,6 +338,44 @@ pub fn Jobset() -> impl IntoView {
                                     _ => view!{}.into_any()
                                 }
                             }
+                        </div>
+                        <div class=style::jobs>
+                            {move || {
+                                let jobs = jobs_data.get();
+
+                                if jobs.is_none() {
+                                    return view!{<p class="left error">"Failed to load jobs"</p>}.into_any();
+                                }
+
+                                let jobs = jobs.unwrap();
+
+                                if jobs.is_err() {
+                                    return view!{<p class="left error">"Failed to load jobs: "{jobs.err().unwrap().to_string()}</p>}.into_any();
+                                }
+
+                                let jobs = jobs.unwrap();
+
+                                view!{
+                                    <table class="generic-table">
+                                    <tbody>
+                                        <tr>
+                                            <th>"Name"</th>
+                                            <th>"Success"</th>
+                                        </tr>
+                                        {jobs.iter().map(|job| {
+                                            let id = job.id;
+                                            view! {
+                                                <tr>
+                                                    <td>{job.attribute_name.clone()}</td>
+                                                    <td>{format!("{:#?}", job.state)}</td>
+                                                </tr>
+                                            }
+                                        }).collect_view()}
+                                    </tbody>
+                                    </table>
+                                }.into_any()
+                            }}
+
                         </div>
                     </div>
                 }.into_any()

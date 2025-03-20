@@ -62,7 +62,7 @@ impl EvalDoneNotification {
         self.derivations.as_ref()
     }
 
-    pub fn get_derivations_copy(&mut self) -> Option<Vec<Job>> {
+    pub fn get_jobs_copy(&mut self) -> Option<Vec<Job>> {
         let vec = self.derivations.clone();
         if vec.is_none() {
             return None;

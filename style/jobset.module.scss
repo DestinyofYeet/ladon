@@ -1,5 +1,7 @@
 @use "../generics/input.scss";
 @use "../generics/table.scss";
+@use "../colors.scss";
+@use "../baseline.scss";
 
 .view {
   padding-left: 10%;
@@ -44,6 +46,14 @@
         height: 35px;
         padding: 0.3vw;
       }
+    }
+  }
+
+  .jobs {
+    color: blue;
+
+    :global(.generic-table) {
+      align-align: center;
     }
   }
 }

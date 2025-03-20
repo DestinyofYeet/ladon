@@ -180,10 +180,10 @@ impl Coordinator {
                 continue;
             }
 
-            let mut derivations = notification.get_derivations_copy().unwrap();
+            let mut jobs = notification.get_jobs_copy().unwrap();
 
-            for eval in derivations.iter_mut() {
-                let result = DrvBasic::get_derivation(&eval.derivation_path).await;
+            for job in jobs.iter_mut() {
+                let result = DrvBasic::get_derivation(&job.derivation_path).await;
                 if result.is_err() {
                     error!("Failed to get derivation path: {}", result.err().unwrap());
                     continue;
@@ -191,15 +191,15 @@ impl Coordinator {
 
                 let result = result.unwrap();
 
-                eval.derivation_path = result.drv_path;
+                job.derivation_path = result.drv_path;
 
-                if eval.attribute_name == "" {
-                    eval.attribute_name = result.name;
+                if job.attribute_name == "" {
+                    job.attribute_name = result.name;
                 }
             }
 
-            for derivation in derivations.iter_mut() {
-                let result = derivation.add_to_db(&db).await;
+            for job in jobs.iter_mut() {
+                let result = job.add_to_db(&db).await;
                 if result.is_err() {
                     error!("Failed to add derivation to db!");
                     continue;
@@ -207,7 +207,7 @@ impl Coordinator {
 
                 let mut diff = JobDiff::new();
                 diff.state = Some(JobState::Building);
-                let result = derivation.update_job(&*db, diff).await;
+                let result = job.update_job(&*db, diff).await;
 
                 if result.is_err() {
                     error!("Failed to update job: {}", result.err().unwrap());
@@ -218,7 +218,7 @@ impl Coordinator {
                     .build_manager
                     .lock()
                     .await
-                    .queue(derivation.derivation_path.clone(), derivation.id.unwrap())
+                    .queue(job.derivation_path.clone(), job.id.unwrap())
                     .await;
             }
         }
@@ -255,8 +255,14 @@ impl Coordinator {
 
                 let mut diff = JobDiff::new();
                 diff.state = Some(JobState::Done);
+                diff.finished = Some(Utc::now());
 
-                job.update_job(&*db, diff).await;
+                let result = job.update_job(&*db, diff).await;
+
+                if result.is_err() {
+                    error!("Failed to update job: {}", result.err().unwrap());
+                    continue;
+                }
             }
             trace!("[lock] Released db lock");
         }

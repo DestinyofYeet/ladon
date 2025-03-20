@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
@@ -11,6 +12,7 @@ pub struct JobDiff {
     pub attribute_name: Option<String>,
     pub derivation_path: Option<String>,
     pub state: Option<JobState>,
+    pub finished: Option<DateTime<Utc>>,
 }
 
 impl JobDiff {
@@ -20,6 +22,7 @@ impl JobDiff {
             attribute_name: None,
             derivation_path: None,
             state: None,
+            finished: None,
         }
     }
 }
@@ -41,6 +44,7 @@ pub struct Job {
     pub attribute_name: String,
     pub derivation_path: String,
     pub state: JobState,
+    pub finished: Option<DateTime<Utc>>,
 }
 
 #[cfg(feature = "ssr")]
@@ -52,6 +56,7 @@ impl Job {
             attribute_name,
             derivation_path,
             state: JobState::ToBeBuilt,
+            finished: None,
         }
     }
 
@@ -61,15 +66,16 @@ impl Job {
         let result = query!(
             "
                 insert into Jobs
-                    (evaluation_id, attribute_name, derivation_path, state)
+                    (evaluation_id, attribute_name, derivation_path, state, finished)
                 values
-                    (?, ?, ?, ?)
+                    (?, ?, ?, ?, ?)
                 returning id
             ",
             self.evaluation_id,
             self.attribute_name,
             self.derivation_path,
             self.state,
+            self.finished,
         )
         .fetch_one(&mut *conn)
         .await
@@ -118,6 +124,7 @@ impl Job {
         handle_field!(attribute_name, "attribute_name");
         handle_field!(derivation_path, "derivation_path");
         handle_field!(state, "state");
+        handle_field_some!(finished, "finished");
 
         if !has_updates {
             return Ok(());
@@ -145,6 +152,24 @@ impl Job {
         )
         .bind(id)
         .fetch_optional(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(result)
+    }
+
+    pub async fn get_all(db: &DB, jobset_id: i32) -> Result<Vec<Job>, DBError> {
+        let mut conn = db.get_conn().await?;
+
+        let result = sqlx::query_as::<_, Job>(
+            "
+                select *
+                from Jobs
+                where evaluation_id = ?
+            ",
+        )
+        .bind(jobset_id)
+        .fetch_all(&mut *conn)
         .await
         .map_err(|e| DBError::new(e.to_string()))?;
 
