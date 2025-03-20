@@ -40,6 +40,8 @@ create table Jobs (
     evaluation_id int not null,
     attribute_name text not null, -- name of attribute in hydraJobs. like: "systems.main" or "systems.wattson"
     derivation_path text not null,
+    state text,
+    finished date,
 
 
     primary key (id)

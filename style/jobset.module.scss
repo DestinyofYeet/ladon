@@ -1,4 +1,7 @@
 @use "../generics/input.scss";
+@use "../generics/table.scss";
+@use "../colors.scss";
+@use "../baseline.scss";
 
 .view {
   padding-left: 10%;
@@ -28,21 +31,29 @@
   .trigger_result {
     .failed {
       color: red;
-    } 
+    }
 
     .success {
       color: green;
     }
   }
 
-  .dropdown_content {
-    .generic_input_form {
+  :global(.dropdown_content) {
+    :global(.generic_input_form) {
       input[type="submit"] {
         width: auto;
         font-size: 1em;
         height: 35px;
         padding: 0.3vw;
       }
+    }
+  }
+
+  .jobs {
+    color: blue;
+
+    :global(.generic-table) {
+      align-align: center;
     }
   }
 }

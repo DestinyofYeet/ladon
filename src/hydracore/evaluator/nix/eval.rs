@@ -8,7 +8,11 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tracing::{debug, error, info};
 
-use tokio::{process::Command, sync::mpsc::Sender, task::JoinHandle};
+use tokio::{
+    process::Command,
+    sync::mpsc::{Sender, UnboundedSender},
+    task::JoinHandle,
+};
 
 use crate::models::{Job, Jobset, JobsetID};
 
@@ -41,7 +45,7 @@ pub struct Evaluation {}
 
 impl Evaluation {
     pub async fn new(
-        sender: Arc<Sender<EvalDoneNotification>>,
+        sender: Arc<UnboundedSender<EvalDoneNotification>>,
         jobset: &Jobset,
     ) -> Result<JoinHandle<()>, EvaluationError> {
         if jobset.id.is_none() {
@@ -87,7 +91,7 @@ impl Evaluation {
                     ));
                 }
 
-                let result = sender.send(notification).await;
+                let result = sender.send(notification);
                 if result.is_err() {
                     error!("Failed to send notification");
                 }
@@ -102,7 +106,7 @@ impl Evaluation {
 
             if value.is_err() {
                 notification.set_error(format!("Failed to parse nix eval output: {}", stdout));
-                let result = sender.send(notification).await;
+                let result = sender.send(notification);
                 if result.is_err() {
                     error!("Failed to send notification");
                 }
@@ -116,7 +120,7 @@ impl Evaluation {
             let notification =
                 EvalDoneNotification::new(started, done, true, None, Some(derivations), jobset_id);
 
-            let result = sender.send(notification).await;
+            let result = sender.send(notification);
             if result.is_err() {
                 error!("Failed to send notification");
             }

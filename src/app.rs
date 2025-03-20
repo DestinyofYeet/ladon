@@ -53,10 +53,10 @@ pub fn App() -> impl IntoView {
     view! {
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/hydra-rs.css"/>
+        <Stylesheet id="leptos" href="/pkg/ladon.css"/>
 
         // sets the document title
-        <Title text="Hydra-rs"/>
+        <Title text="Ladon"/>
 
         // content for this welcome page
         {HomePage()}
@@ -97,7 +97,7 @@ fn HomePage() -> impl IntoView {
         <Router>
             <nav> // navbar
                 <div class=app_style::topnav>
-                    <a class=app_style::hydra href="/">Hydra-rs</a>
+                    <a class=app_style::hydra href="/">"Ladon"</a>
                     <div class=app_style::entries>
                         <a href="jobsets">Jobsets</a>
                         <a href="dashboard">Dashboard</a>

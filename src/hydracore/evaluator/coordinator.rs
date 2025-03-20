@@ -1,11 +1,17 @@
 use std::{process::ExitStatus, sync::Arc};
 
-use crate::models::{Job, Jobset, JobsetDiff, JobsetState};
+use crate::{
+    hydracore::evaluator::nix::drv::DependencyTree,
+    models::{Job, JobDiff, JobState, Jobset, JobsetDiff, JobsetState},
+};
 
 use super::{
     super::db::DB,
-    nix::drv::Drv,
-    nix::eval::{Evaluation, EvaluationError},
+    nix::{
+        build::{BuildManager, BuildResult},
+        drv::DrvBasic,
+        eval::{Evaluation, EvaluationError},
+    },
     notifications::EvalDoneNotification,
 };
 
@@ -13,38 +19,50 @@ use crate::models::Project;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::{
-    mpsc::{self, Receiver, Sender},
+    mpsc::{self, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender},
     Mutex,
 };
 use tracing::{error, info, trace};
 
 struct CoordinatorData {
     db: Arc<Mutex<DB>>,
+    build_manager: Arc<Mutex<BuildManager>>,
 }
 
 impl CoordinatorData {
-    pub fn new(db: DB) -> Self {
+    pub fn new(db: DB, build_manager: BuildManager) -> Self {
         CoordinatorData {
             db: Arc::new(Mutex::new(db)),
+            build_manager: Arc::new(Mutex::new(build_manager)),
         }
     }
 }
 
 pub struct Coordinator {
     data: Arc<Mutex<CoordinatorData>>,
-    eval_tx: Arc<Sender<EvalDoneNotification>>,
+    eval_tx: Arc<UnboundedSender<EvalDoneNotification>>,
 }
 
 impl Coordinator {
     pub fn new(db: DB) -> Self {
-        let data = Arc::new(Mutex::new(CoordinatorData::new(db)));
+        let (build_tx, build_rx) = unbounded_channel::<BuildResult>();
+        let data = Arc::new(Mutex::new(CoordinatorData::new(
+            db,
+            BuildManager::new(build_tx, 2),
+        )));
 
-        let (eval_tx, eval_rx) = mpsc::channel::<EvalDoneNotification>(1);
+        let (eval_tx, eval_rx) = unbounded_channel::<EvalDoneNotification>();
 
         let eval_data = data.clone();
 
         let _handle = tokio::spawn(async {
             Coordinator::on_eval_done(eval_rx, eval_data).await;
+        });
+
+        let build_data = data.clone();
+
+        tokio::spawn(async move {
+            Coordinator::on_build_done(build_rx, build_data).await;
         });
 
         Coordinator {
@@ -78,7 +96,7 @@ impl Coordinator {
     }
 
     async fn on_eval_done(
-        mut receiver: Receiver<EvalDoneNotification>,
+        mut receiver: UnboundedReceiver<EvalDoneNotification>,
         data: Arc<Mutex<CoordinatorData>>,
     ) {
         while let Some(mut notification) = receiver.recv().await {
@@ -110,14 +128,14 @@ impl Coordinator {
                     "Failed to get jobset from db: {}",
                     jobset.err().unwrap().to_string()
                 );
-                return;
+                continue;
             }
 
             let jobset = jobset.unwrap();
 
             if jobset.is_none() {
                 error!("Failed to find jobset!");
-                return;
+                continue;
             }
 
             let mut jobset = jobset.unwrap();
@@ -132,10 +150,10 @@ impl Coordinator {
                         "Failed to update jobset: {}",
                         result.err().unwrap().to_string()
                     );
-                    return;
+                    continue;
                 }
 
-                return;
+                continue;
             }
 
             diff.set_state(JobsetState::Idle);
@@ -147,7 +165,7 @@ impl Coordinator {
                     "Failed to update jobset: {}",
                     result.err().unwrap().to_string()
                 );
-                return;
+                continue;
             }
 
             let mut evaluation = crate::models::Evaluation::new(jobset.id.unwrap());
@@ -159,34 +177,94 @@ impl Coordinator {
                     "Failed to add evaluation: {}",
                     result.err().unwrap().to_string()
                 );
-                return;
+                continue;
             }
 
-            let mut derivations = notification.get_derivations_copy().unwrap();
+            let mut jobs = notification.get_jobs_copy().unwrap();
 
-            for eval in derivations.iter_mut() {
-                let result = Drv::get_derivation(&eval.derivation_path).await;
+            for job in jobs.iter_mut() {
+                let result = DrvBasic::get_derivation(&job.derivation_path).await;
                 if result.is_err() {
-                    error!("Failed to get derivation path!");
-                    return;
+                    error!("Failed to get derivation path: {}", result.err().unwrap());
+                    continue;
                 }
 
                 let result = result.unwrap();
 
-                eval.derivation_path = result.drv_path;
+                job.derivation_path = result.drv_path;
 
-                if eval.attribute_name == "" {
-                    eval.attribute_name = result.name;
+                if job.attribute_name == "" {
+                    job.attribute_name = result.name;
                 }
             }
 
-            for derivation in derivations.iter_mut() {
-                let result = derivation.add_to_db(&db).await;
+            for job in jobs.iter_mut() {
+                let result = job.add_to_db(&db).await;
                 if result.is_err() {
                     error!("Failed to add derivation to db!");
-                    return;
+                    continue;
+                }
+
+                let mut diff = JobDiff::new();
+                diff.state = Some(JobState::Building);
+                let result = job.update_job(&*db, diff).await;
+
+                if result.is_err() {
+                    error!("Failed to update job: {}", result.err().unwrap());
+                    continue;
+                }
+
+                locked
+                    .build_manager
+                    .lock()
+                    .await
+                    .queue(job.derivation_path.clone(), job.id.unwrap())
+                    .await;
+            }
+        }
+    }
+
+    async fn on_build_done(
+        mut reciever: UnboundedReceiver<BuildResult>,
+        data: Arc<Mutex<CoordinatorData>>,
+    ) {
+        info!("Waiting  for build_done messages");
+        while let Some(message) = reciever.recv().await {
+            info!("Build done: {}", message.path);
+
+            trace!("[lock] Attempts to get data lock");
+            let locked = data.lock().await;
+            trace!("[lock] Got data lock");
+
+            trace!("[lock] Attempts to get db lock");
+            {
+                let db = locked.db.lock().await;
+                let job = Job::get_single(&*db, message.id).await;
+
+                if job.is_err() {
+                    error!("Failed to get job: {}", job.err().unwrap());
+                    continue;
+                }
+
+                let job = job.unwrap();
+                if job.is_none() {
+                    error!("Failed to find job!");
+                    continue;
+                }
+                let mut job = job.unwrap();
+
+                let mut diff = JobDiff::new();
+                diff.state = Some(JobState::Done);
+                diff.finished = Some(Utc::now());
+
+                let result = job.update_job(&*db, diff).await;
+
+                if result.is_err() {
+                    error!("Failed to update job: {}", result.err().unwrap());
+                    continue;
                 }
             }
+            trace!("[lock] Released db lock");
         }
     }
 }
