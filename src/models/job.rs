@@ -13,6 +13,7 @@ pub struct JobDiff {
     pub derivation_path: Option<String>,
     pub state: Option<JobState>,
     pub finished: Option<DateTime<Utc>>,
+    pub took: Option<i32>,
 }
 
 impl JobDiff {
@@ -23,6 +24,7 @@ impl JobDiff {
             derivation_path: None,
             state: None,
             finished: None,
+            took: None,
         }
     }
 }
@@ -33,7 +35,7 @@ pub enum JobState {
     ToBeBuilt,
     Building,
     Failed,
-    Done,
+    Successful,
 }
 
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
@@ -45,6 +47,7 @@ pub struct Job {
     pub derivation_path: String,
     pub state: JobState,
     pub finished: Option<DateTime<Utc>>,
+    pub took: Option<i32>,
 }
 
 #[cfg(feature = "ssr")]
@@ -57,6 +60,7 @@ impl Job {
             derivation_path,
             state: JobState::ToBeBuilt,
             finished: None,
+            took: None,
         }
     }
 
@@ -66,9 +70,9 @@ impl Job {
         let result = query!(
             "
                 insert into Jobs
-                    (evaluation_id, attribute_name, derivation_path, state, finished)
+                    (evaluation_id, attribute_name, derivation_path, state, finished, took)
                 values
-                    (?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?)
                 returning id
             ",
             self.evaluation_id,
@@ -76,6 +80,7 @@ impl Job {
             self.derivation_path,
             self.state,
             self.finished,
+            self.took,
         )
         .fetch_one(&mut *conn)
         .await
@@ -125,6 +130,7 @@ impl Job {
         handle_field!(derivation_path, "derivation_path");
         handle_field!(state, "state");
         handle_field_some!(finished, "finished");
+        handle_field_some!(took, "took");
 
         if !has_updates {
             return Ok(());

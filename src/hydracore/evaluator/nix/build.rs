@@ -1,5 +1,5 @@
 use core::{error, fmt};
-use std::{process::Stdio, sync::Arc};
+use std::{process::Stdio, sync::Arc, time::Instant};
 
 use tokio::{
     process::Command,
@@ -36,6 +36,7 @@ pub struct BuildResult {
     pub successful: bool,
     pub id: i32,
     pub path: String,
+    pub took_secs: i32,
 }
 
 struct QueueItem {
@@ -84,13 +85,16 @@ impl BuildManager {
             tokio::spawn(async move {
                 let ticket = semaphore_clone.acquire().await.unwrap();
                 info!("Queuing: {}", item.path);
+                let start = Instant::now();
                 let result = BuildManager::realise(&item.path).await;
+                let took = start.elapsed().as_secs() as i32;
                 drop(ticket);
 
                 let mut message = BuildResult {
                     id: item.drv_id,
                     successful: true,
                     path: item.path,
+                    took_secs: took,
                 };
                 if result.is_err() {
                     error!("Failed to realise store path: {}", result.err().unwrap());

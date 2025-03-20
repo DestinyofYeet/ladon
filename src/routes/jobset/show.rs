@@ -6,6 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 use crate::{
     components::go_back::GoBack,
     models::{Job, Jobset, JobsetState},
+    routes::job::get_jobs,
 };
 
 stylance::import_crate_style!(
@@ -159,31 +160,6 @@ pub async fn trigger_jobset(project_id: String, jobset_id: String) -> Result<(),
     }
 
     Ok(())
-}
-
-#[server]
-pub async fn get_jobs(jobset_id: String) -> Result<Vec<Job>, ServerFnError> {
-    use crate::state::State;
-    use axum::http::StatusCode;
-    use leptos_axum::{redirect, ResponseOptions};
-    use std::sync::Arc;
-    use tracing::error;
-    use tracing::info;
-
-    let state: Arc<State> = expect_context();
-
-    let db = state.coordinator.lock().await.get_db().await;
-
-    let db_locked = db.lock().await;
-
-    let jobs = Job::get_all(&*db_locked, jobset_id.parse().unwrap()).await;
-
-    let jobs = jobs.map_err(|e| {
-        error!("Failed to get jobs: {}", e.to_string());
-        ServerFnError::new("Failed to get jobsets!")
-    })?;
-
-    Ok(jobs)
 }
 
 #[component]
@@ -355,24 +331,37 @@ pub fn Jobset() -> impl IntoView {
 
                                 let jobs = jobs.unwrap();
 
+                                if jobs.is_empty() {
+                                    return view! {
+                                        <h3>"No jobs yet!"</h3>
+                                    }.into_any();
+                                }
+
                                 view!{
-                                    <table class="generic-table">
-                                    <tbody>
-                                        <tr>
-                                            <th>"Name"</th>
-                                            <th>"Success"</th>
-                                        </tr>
-                                        {jobs.iter().map(|job| {
-                                            let id = job.id;
-                                            view! {
-                                                <tr>
-                                                    <td>{job.attribute_name.clone()}</td>
-                                                    <td>{format!("{:#?}", job.state)}</td>
-                                                </tr>
-                                            }
-                                        }).collect_view()}
-                                    </tbody>
-                                    </table>
+                                    <h3>"Jobs"</h3>
+                                    <div class="generic_table">
+                                        <table>
+                                        <tbody>
+                                            <tr>
+                                                <th>"Name"</th>
+                                                <th>"Status"</th>
+                                                <th>"Done"</th>
+                                                <th>"Took"</th>
+                                            </tr>
+                                            {jobs.iter().map(|job| {
+                                                let id = format!("{}", job.id.unwrap());
+                                                view! {
+                                                    <tr>
+                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, job.attribute_name.clone())}
+                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, format!("{:#?}", job.state))}
+                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, convert_date_to_string(job.finished))}
+                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, convert_seconds_to_minutes(job.took.unwrap()))}
+                                                    </tr>
+                                                }
+                                            }).collect_view()}
+                                        </tbody>
+                                        </table>
+                                    </div>
                                 }.into_any()
                             }}
 
@@ -382,6 +371,19 @@ pub fn Jobset() -> impl IntoView {
             }}
         </Suspense>
     }
+}
+
+fn generate_job_td(
+    project_id: i32,
+    jobset_id: i32,
+    job_id: &String,
+    data: String,
+) -> impl IntoView {
+    let url = format!(
+        "/project/{}/jobset/{}/job/{}",
+        project_id, jobset_id, job_id
+    );
+    view! {<td><a href=url>{data}</a></td>}.into_any()
 }
 
 fn convert_date_to_string(date: Option<DateTime<Utc>>) -> String {

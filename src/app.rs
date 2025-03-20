@@ -134,6 +134,7 @@ fn HomePage() -> impl IntoView {
                     <Route path=path!("/project/:proj-id/create-jobset") view=routes::jobset::CreateJobset/>
                     <Route path=path!("/project/:proj-id/jobset/:jobset-id") view=routes::jobset::Jobset/>
                     <Route path=path!("/project/:proj-id/jobset/:jobset-id/edit") view=routes::jobset::EditJobset/>
+                    <Route path=path!("/project/:proj-id/jobset/:jobset-id/job/:job-id") view=routes::job::Job/>
                 </Routes>
             </main>
         </Router>

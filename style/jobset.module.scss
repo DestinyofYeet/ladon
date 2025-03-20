@@ -52,8 +52,8 @@
   .jobs {
     color: blue;
 
-    :global(.generic-table) {
-      align-align: center;
+    h3 {
+      text-align: center;
     }
   }
 }

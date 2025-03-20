@@ -42,6 +42,7 @@ create table Jobs (
     derivation_path text not null,
     state text,
     finished date,
+    took int,
 
 
     primary key (id)

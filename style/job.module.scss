@@ -1,0 +1,9 @@
+@use "../colors.scss";
+@use "../baseline.scss";
+
+.job {
+  .log {
+    background: colors.$background_two;
+    text-align: left;
+  }
+}

@@ -254,8 +254,9 @@ impl Coordinator {
                 let mut job = job.unwrap();
 
                 let mut diff = JobDiff::new();
-                diff.state = Some(JobState::Done);
+                diff.state = Some(JobState::Successful);
                 diff.finished = Some(Utc::now());
+                diff.took = Some(message.took_secs);
 
                 let result = job.update_job(&*db, diff).await;
 
