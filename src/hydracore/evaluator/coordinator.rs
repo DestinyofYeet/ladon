@@ -1,8 +1,10 @@
-use std::{process::ExitStatus, sync::Arc};
+use std::{process::ExitStatus, sync::Arc, time::Duration};
 
 use crate::{
-    hydracore::evaluator::nix::drv::DependencyTree,
+    hydracore::{evaluator::nix::drv::DependencyTree, DBError},
     models::{Job, JobDiff, JobState, Jobset, JobsetDiff, JobsetState},
+    routes::jobset::trigger_jobset,
+    state::State,
 };
 
 use super::{
@@ -18,11 +20,14 @@ use super::{
 use crate::models::Project;
 
 use chrono::{DateTime, Utc};
-use tokio::sync::{
-    mpsc::{self, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender},
-    Mutex,
+use tokio::{
+    sync::{
+        mpsc::{self, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender},
+        Mutex,
+    },
+    time::Sleep,
 };
-use tracing::{error, info, trace};
+use tracing::{debug, error, info, trace};
 
 struct CoordinatorData {
     db: Arc<Mutex<DB>>,
@@ -69,6 +74,55 @@ impl Coordinator {
             data,
             eval_tx: Arc::new(eval_tx),
         }
+    }
+
+    pub async fn start_jobsets_timer(&self, state: Arc<State>) -> Result<(), DBError> {
+        let db = self.get_db().await;
+        let locked_db = db.lock().await;
+        let projects = Project::get_all(&*locked_db).await?;
+
+        for project in projects.iter() {
+            let mut jobsets = Jobset::get_all(&*locked_db, project.id.unwrap()).await?;
+
+            while let Some(jobset) = jobsets.pop() {
+                if jobset.check_interval == 0 {
+                    debug!(
+                        "Disabling jobset timer for jobset {} because its 0",
+                        jobset.name
+                    );
+                    continue;
+                }
+                Coordinator::start_jobset_timer(state.clone(), jobset);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn start_jobset_timer(state: Arc<State>, mut jobset: Jobset) {
+        info!("Started jobset timer for {}", jobset.name);
+        tokio::spawn(async move {
+            loop {
+                trace!(
+                    "[Jobset timer: {}] Sleeping {} seconds",
+                    jobset.name,
+                    jobset.check_interval
+                );
+                _ = tokio::time::sleep(Duration::from_secs(jobset.check_interval as u64)).await;
+                trace!("[Jobset timer: {}] Triggering jobset", jobset.name);
+
+                let result = state
+                    .clone()
+                    .coordinator
+                    .lock()
+                    .await
+                    .schedule_jobset(&mut jobset)
+                    .await;
+
+                if result.is_err() {
+                    error!("Failed to trigger jobset: {}", result.err().unwrap());
+                }
+            }
+        });
     }
 
     pub async fn get_db(&self) -> Arc<Mutex<DB>> {

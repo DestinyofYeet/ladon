@@ -30,7 +30,7 @@ impl JobDiff {
 }
 
 #[cfg_attr(feature = "ssr", derive(sqlx::Type))]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum JobState {
     ToBeBuilt,
     Building,

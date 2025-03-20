@@ -21,7 +21,6 @@ async fn main() {
     use tokio::sync::Mutex;
     use tracing::{error, Level};
     use tracing_subscriber;
-
     let args = Args::parse();
 
     let logger = tracing_subscriber::fmt();
@@ -50,6 +49,18 @@ async fn main() {
     let state = Arc::new(state::State {
         coordinator: Mutex::new(coordinator),
     });
+
+    let result = state
+        .clone()
+        .coordinator
+        .lock()
+        .await
+        .start_jobsets_timer(state.clone())
+        .await;
+
+    if result.is_err() {
+        error!("Failed to start jobsets timer: {}", result.err().unwrap());
+    }
 
     use axum::Router;
     use ladon::app::*;

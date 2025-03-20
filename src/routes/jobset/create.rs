@@ -41,6 +41,7 @@ pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
         error!("Failed to add jobset: {}", err);
         return Err(ServerFnError::new("Failed to add jobset!".to_string()));
     }
+
     leptos_axum::redirect(&format!(
         "/project/{}/jobset/{}",
         jobset.project_id,

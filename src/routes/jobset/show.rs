@@ -1,11 +1,16 @@
+use std::cmp::Ordering;
+
 use chrono::{DateTime, Utc};
 use leptos::{prelude::*, server_fn::ServerFn, task::spawn_local};
 use leptos_router::hooks::use_params_map;
 use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::{
-    components::go_back::GoBack,
-    models::{Job, Jobset, JobsetState},
+    components::{
+        error::{mk_err_view_string, mk_error_view},
+        go_back::GoBack,
+    },
+    models::{Job, JobState, Jobset, JobsetState},
     routes::job::get_jobs,
 };
 
@@ -320,22 +325,38 @@ pub fn Jobset() -> impl IntoView {
                                 let jobs = jobs_data.get();
 
                                 if jobs.is_none() {
-                                    return view!{<p class="left error">"Failed to load jobs"</p>}.into_any();
+                                    return mk_error_view("Failed to load jobs");
                                 }
 
                                 let jobs = jobs.unwrap();
 
                                 if jobs.is_err() {
-                                    return view!{<p class="left error">"Failed to load jobs: "{jobs.err().unwrap().to_string()}</p>}.into_any();
+                                    return mk_err_view_string(format!("Failed to load jobs: {}", jobs.err().unwrap().to_string()));
                                 }
 
-                                let jobs = jobs.unwrap();
+                                let mut jobs = jobs.unwrap();
 
                                 if jobs.is_empty() {
                                     return view! {
                                         <h3>"No jobs yet!"</h3>
                                     }.into_any();
                                 }
+
+                                jobs.sort_by(|a, b| {
+                                    if a.state == JobState::Building && b.state == JobState::Building {
+                                        return Ordering::Equal;
+                                    }
+
+                                    if a.state == JobState::Building {
+                                        return Ordering::Greater;
+                                    }
+
+                                    if b.state == JobState::Building {
+                                        return Ordering::Less;
+                                    }
+                                    a.finished.cmp(&b.finished)
+                                });
+                                jobs.reverse();
 
                                 view!{
                                     <h3>"Jobs"</h3>
@@ -355,7 +376,7 @@ pub fn Jobset() -> impl IntoView {
                                                         {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, job.attribute_name.clone())}
                                                         {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, format!("{:#?}", job.state))}
                                                         {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, convert_date_to_string(job.finished))}
-                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, convert_seconds_to_minutes(job.took.unwrap()))}
+                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, job.took.map_or("not done yet".to_string(), |value| convert_seconds_to_minutes(value)))}
                                                     </tr>
                                                 }
                                             }).collect_view()}

@@ -3,7 +3,13 @@ use std::{process::Stdio, str::FromStr};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
-use crate::{components::go_back::GoBack, models::Job};
+use crate::{
+    components::{
+        error::{mk_err_view_string, mk_error_view},
+        go_back::GoBack,
+    },
+    models::Job,
+};
 
 stylance::import_crate_style!(style, "style/job.module.scss");
 
@@ -107,7 +113,9 @@ pub fn Job() -> impl IntoView {
 
     let output_data = OnceResource::new(get_job_output(job_id.clone()));
 
-    let back_url = format!("/project/{}/jobset/{}", project_id, job_id);
+    let job_data = OnceResource::new(get_job(job_id.clone()));
+
+    let back_url = format!("/project/{}/jobset/{}", project_id, jobset_id);
 
     view! {
         <div class=style::job>
@@ -132,7 +140,30 @@ pub fn Job() -> impl IntoView {
                     output = String::from_str("The log is empty :/").unwrap();
                 }
 
-                view!{<pre class=style::log>{output}</pre>}.into_any()
+                let job = job_data.get();
+
+                if job.is_none() {
+                    return mk_error_view("Failed to find job");
+                }
+
+                let job = job.unwrap();
+
+                if job.is_err() {
+                    return mk_err_view_string(job.err().unwrap().to_string());
+                }
+
+                let job = job.unwrap();
+
+                if job.is_none() {
+                    return mk_error_view("No job found!");
+                }
+
+                let job = job.unwrap();
+
+                view!{
+                    <h3>"Showing output for "{job.attribute_name}<br/>{job.derivation_path}</h3>
+                    <pre class=style::log>{output}</pre>
+                }.into_any()
             }}
         </Suspense>
         </div>
