@@ -4,6 +4,7 @@ use leptos_router::hooks::use_params_map;
 
 #[server]
 pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
+    use crate::hydracore::Coordinator;
     use crate::state::State;
     use axum::http::StatusCode;
     use leptos_axum::ResponseOptions;
@@ -41,6 +42,8 @@ pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
         error!("Failed to add jobset: {}", err);
         return Err(ServerFnError::new("Failed to add jobset!".to_string()));
     }
+
+    Coordinator::start_jobset_timer(state.clone(), jobset.clone());
 
     leptos_axum::redirect(&format!(
         "/project/{}/jobset/{}",

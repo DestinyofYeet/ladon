@@ -27,7 +27,7 @@ use tokio::{
     },
     time::Sleep,
 };
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 struct CoordinatorData {
     db: Arc<Mutex<DB>>,
@@ -109,6 +109,36 @@ impl Coordinator {
                 );
                 _ = tokio::time::sleep(Duration::from_secs(jobset.check_interval as u64)).await;
                 trace!("[Jobset timer: {}] Triggering jobset", jobset.name);
+                let result = Jobset::get_single(
+                    &*state
+                        .clone()
+                        .coordinator
+                        .lock()
+                        .await
+                        .get_db()
+                        .await
+                        .lock()
+                        .await,
+                    jobset.id.unwrap(),
+                )
+                .await;
+
+                if result.is_err() {
+                    error!(
+                        "Failed to get jobset: {}",
+                        result.err().unwrap().to_string()
+                    );
+                    continue;
+                }
+
+                let result = result.unwrap();
+
+                if result.is_none() {
+                    warn!("Jobset probably got deleted, stopping thread");
+                    return;
+                }
+
+                jobset = result.unwrap();
 
                 let result = state
                     .clone()
@@ -131,6 +161,7 @@ impl Coordinator {
     }
 
     pub async fn schedule_jobset(&mut self, jobset: &mut Jobset) -> Result<(), EvaluationError> {
+        trace!("current state is: {:#?}", jobset.state);
         if jobset.state == Some(JobsetState::Evaluating) {
             return Err(EvaluationError::new(
                 "Evaluation already running".to_string(),
