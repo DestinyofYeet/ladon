@@ -86,14 +86,14 @@ pub async fn get_job(job_id: String) -> Result<Option<Job>, ServerFnError> {
 }
 
 #[server]
-pub async fn get_jobs(jobset_id: String) -> Result<Vec<Job>, ServerFnError> {
+pub async fn get_jobs(evaluation_id: String) -> Result<Vec<Job>, ServerFnError> {
     let state: Arc<State> = expect_context();
 
     let db = state.coordinator.lock().await.get_db().await;
 
     let db_locked = db.lock().await;
 
-    let jobs = Job::get_all(&*db_locked, jobset_id.parse().unwrap()).await;
+    let jobs = Job::get_all(&*db_locked, evaluation_id.parse().unwrap()).await;
 
     let jobs = jobs.map_err(|e| {
         error!("Failed to get jobs: {}", e.to_string());
@@ -110,16 +110,20 @@ pub fn Job() -> impl IntoView {
     let project_id = params.read_untracked().get("proj-id").unwrap_or_default();
     let jobset_id = params.read_untracked().get("jobset-id").unwrap_or_default();
     let job_id = params.read_untracked().get("job-id").unwrap_or_default();
+    let evaluation_id = params.read_untracked().get("eval-id").unwrap_or_default();
 
     let output_data = OnceResource::new(get_job_output(job_id.clone()));
 
     let job_data = OnceResource::new(get_job(job_id.clone()));
 
-    let back_url = format!("/project/{}/jobset/{}", project_id, jobset_id);
+    let back_url = format!(
+        "/project/{}/jobset/{}/evaluation/{}",
+        project_id, jobset_id, evaluation_id
+    );
 
     view! {
         <div class=style::job>
-        <GoBack url=back_url text="jobset".to_string()/>
+        <GoBack url=back_url text="evaluation".to_string()/>
         <Suspense fallback=move || view!{<p>"Loading job log..."</p>}>
             {move || {
                 let output = output_data.get();

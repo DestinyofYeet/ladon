@@ -11,7 +11,7 @@ use crate::{
         go_back::GoBack,
     },
     models::{Job, JobState, Jobset, JobsetState},
-    routes::job::get_jobs,
+    routes::{evaluation::get_evaluations, job::get_jobs},
 };
 
 stylance::import_crate_style!(
@@ -184,7 +184,7 @@ pub fn Jobset() -> impl IntoView {
     let trigger_jobset_action = ServerAction::<TriggerJobset>::new();
     let delete_jobset_action = ServerAction::<DeleteJobset>::new();
 
-    let jobs_data = OnceResource::new(get_jobs(jobset_id.clone()));
+    let evaluations = OnceResource::new(get_evaluations(jobset_id.clone()));
 
     Effect::new(move |_| {
         if let Some(Ok(_)) = trigger_jobset_action.value().get() {
@@ -320,91 +320,53 @@ pub fn Jobset() -> impl IntoView {
                                 }
                             }
                         </div>
-                        <div class=style::jobs>
-                            {move || {
-                                let jobs = jobs_data.get();
+                        <h3>"Evaluations"</h3>
+                        <div class="generic_table">
+                            <table>
+                            <tbody>
+                                <tr>
+                                    <th>"#"</th>
+                                </tr>
+                                {
+                                    let evals = evaluations.get();
 
-                                if jobs.is_none() {
-                                    return mk_error_view("Failed to load jobs");
-                                }
-
-                                let jobs = jobs.unwrap();
-
-                                if jobs.is_err() {
-                                    return mk_err_view_string(format!("Failed to load jobs: {}", jobs.err().unwrap().to_string()));
-                                }
-
-                                let mut jobs = jobs.unwrap();
-
-                                if jobs.is_empty() {
-                                    return view! {
-                                        <h3>"No jobs yet!"</h3>
-                                    }.into_any();
-                                }
-
-                                jobs.sort_by(|a, b| {
-                                    if a.state == JobState::Building && b.state == JobState::Building {
-                                        return Ordering::Equal;
+                                    if evals.is_none() {
+                                        return mk_error_view("Failed to fetch evaluations!");
                                     }
 
-                                    if a.state == JobState::Building {
-                                        return Ordering::Greater;
+                                    let evals = evals.unwrap();
+
+                                    if evals.is_err() {
+                                        return mk_err_view_string(format!("Failed to fetch evaluations: {}", evals.err().unwrap()));
                                     }
 
-                                    if b.state == JobState::Building {
-                                        return Ordering::Less;
+                                    let mut evals = evals.unwrap();
+
+                                    evals.sort_by(|a, b| {
+                                        a.id.cmp(&b.id)
+                                    });
+
+                                    evals.reverse();
+
+                                    {
+                                        evals.iter().map(|eval| {
+                                            let id = eval.id.unwrap();
+                                            view!{
+                                                <tr>
+                                                <td><a href=format!("/project/{}/jobset/{}/evaluation/{}", project_id, jobset_id, id) class="left">{id}</a></td>
+                                                </tr>
+                                            }
+                                        }).collect_view()
                                     }
-                                    a.finished.cmp(&b.finished)
-                                });
-                                jobs.reverse();
-
-                                view!{
-                                    <h3>"Jobs"</h3>
-                                    <div class="generic_table">
-                                        <table>
-                                        <tbody>
-                                            <tr>
-                                                <th>"Name"</th>
-                                                <th>"Status"</th>
-                                                <th>"Done"</th>
-                                                <th>"Took"</th>
-                                            </tr>
-                                            {jobs.iter().map(|job| {
-                                                let id = format!("{}", job.id.unwrap());
-                                                view! {
-                                                    <tr>
-                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, job.attribute_name.clone())}
-                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, format!("{:#?}", job.state))}
-                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, convert_date_to_string(job.finished))}
-                                                        {generate_job_td(jobset.project_id, jobset.id.unwrap(), &id, job.took.map_or("not done yet".to_string(), |value| convert_seconds_to_minutes(value)))}
-                                                    </tr>
-                                                }
-                                            }).collect_view()}
-                                        </tbody>
-                                        </table>
-                                    </div>
-                                }.into_any()
-                            }}
-
+                                }
+                            </tbody>
+                            </table>
                         </div>
                     </div>
                 }.into_any()
             }}
         </Suspense>
     }
-}
-
-fn generate_job_td(
-    project_id: i32,
-    jobset_id: i32,
-    job_id: &String,
-    data: String,
-) -> impl IntoView {
-    let url = format!(
-        "/project/{}/jobset/{}/job/{}",
-        project_id, jobset_id, job_id
-    );
-    view! {<td><a href=url>{data}</a></td>}.into_any()
 }
 
 fn convert_date_to_string(date: Option<DateTime<Utc>>) -> String {

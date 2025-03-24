@@ -48,4 +48,21 @@ impl Evaluation {
         self.id = Some(result.id as i32);
         Ok(())
     }
+
+    pub async fn get_all(db: &DB, jobset_id: i32) -> Result<Vec<Evaluation>, DBError> {
+        let mut conn = db.get_conn().await?;
+
+        let result = sqlx::query_as::<_, Evaluation>(
+            "
+                select * from Evaluations
+                where jobset_id = ?
+            ",
+        )
+        .bind(jobset_id)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(result)
+    }
 }

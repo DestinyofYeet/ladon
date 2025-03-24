@@ -43,7 +43,9 @@ pub async fn create_jobset(jobset: Jobset) -> Result<(), ServerFnError> {
         return Err(ServerFnError::new("Failed to add jobset!".to_string()));
     }
 
-    Coordinator::start_jobset_timer(state.clone(), jobset.clone());
+    if jobset.check_interval != 0 {
+        Coordinator::start_jobset_timer(state.clone(), jobset.clone());
+    }
 
     leptos_axum::redirect(&format!(
         "/project/{}/jobset/{}",

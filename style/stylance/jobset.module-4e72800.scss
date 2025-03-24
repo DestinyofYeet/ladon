@@ -49,11 +49,16 @@
     }
   }
 
-  .jobs-4e72800 {
-    color: blue;
+  .generic_table {
 
-    h3 {
-      text-align: center;
+    td,
+    th {
+      padding-left: 5%;
+      text-align: left;
+    }
+
+    a {
+      text-decoration: underline;
     }
   }
 }

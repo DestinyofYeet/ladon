@@ -164,7 +164,7 @@ impl Job {
         Ok(result)
     }
 
-    pub async fn get_all(db: &DB, jobset_id: i32) -> Result<Vec<Job>, DBError> {
+    pub async fn get_all(db: &DB, evaluation_id: i32) -> Result<Vec<Job>, DBError> {
         let mut conn = db.get_conn().await?;
 
         let result = sqlx::query_as::<_, Job>(
@@ -174,7 +174,7 @@ impl Job {
                 where evaluation_id = ?
             ",
         )
-        .bind(jobset_id)
+        .bind(evaluation_id)
         .fetch_all(&mut *conn)
         .await
         .map_err(|e| DBError::new(e.to_string()))?;
