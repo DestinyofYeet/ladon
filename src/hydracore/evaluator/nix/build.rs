@@ -9,7 +9,7 @@ use tokio::{
     },
     task::JoinHandle,
 };
-use tracing::{error, info};
+use tracing::{error, info, trace};
 
 use crate::hydracore::Coordinator;
 
@@ -74,7 +74,17 @@ impl BuildManager {
     }
 
     pub async fn queue(&self, path: String, id: i32) {
-        self.queue.clone().send(QueueItem { path, drv_id: id });
+        let result = self.queue.clone().send(QueueItem {
+            path: path.clone(),
+            drv_id: id,
+        });
+
+        if result.is_err() {
+            error!("Failed to queue '{}': {}", path, result.err().unwrap());
+            return;
+        }
+
+        trace!("Queued: {}", path);
     }
 
     async fn queue_consumer(mut receiver: UnboundedReceiver<QueueItem>, settings: BuildSettings) {
@@ -84,7 +94,7 @@ impl BuildManager {
             let build_tx_clone = settings.build_tx.clone();
             tokio::spawn(async move {
                 let ticket = semaphore_clone.acquire().await.unwrap();
-                info!("Queuing: {}", item.path);
+                info!("Building: {}", item.path);
                 let start = Instant::now();
                 let result = BuildManager::realise(&item.path).await;
                 let took = start.elapsed().as_secs() as i32;
