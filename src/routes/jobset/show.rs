@@ -315,18 +315,11 @@ pub fn Jobset() -> impl IntoView {
                             {mk_jobset_entry("State: ", jobset.state.clone().unwrap_or(JobsetState::Unknown).to_string())}
                             {
                                 match jobset.state {
-                                    Some(JobsetState::EvalFailed) => mk_jobset_entry("Error", jobset.error_message.unwrap()).into_any(),
+                                    Some(JobsetState::EvalFailed) => mk_jobset_entry_error("Error", jobset.error_message.unwrap()).into_any(),
                                     _ => view!{}.into_any()
                                 }
                             }
                         </div>
-                        <h3>"Evaluations"</h3>
-                        <div class="generic_table">
-                            <table>
-                            <tbody>
-                                <tr>
-                                    <th>"#"</th>
-                                </tr>
                                 {
                                     let evals = evaluations.get();
 
@@ -348,20 +341,36 @@ pub fn Jobset() -> impl IntoView {
 
                                     evals.reverse();
 
-                                    {
-                                        evals.iter().map(|eval| {
-                                            let id = eval.id.unwrap();
-                                            view!{
-                                                <tr>
-                                                <td><a href=format!("/project/{}/jobset/{}/evaluation/{}", project_id, jobset_id, id) class="left">{id}</a></td>
-                                                </tr>
-                                            }
-                                        }).collect_view()
+                                    if evals.len() == 0 {
+                                        view!{
+                                            <h3>"No builds yet!"</h3>
+                                        }.into_any()
+                                    } else {
+                                        view! {
+
+                                            <h3>"Evaluations"</h3>
+                                            <div class="generic_table">
+                                                <table>
+                                                <tbody>
+                                                    <tr>
+                                                        <th>"#"</th>
+                                                    </tr>
+                                                    {
+                                                        evals.iter().map(|eval| {
+                                                            let id = eval.id.unwrap();
+                                                            view!{
+                                                                <tr>
+                                                                <td><a href=format!("/project/{}/jobset/{}/evaluation/{}", project_id, jobset_id, id) class="left">{id}</a></td>
+                                                                </tr>
+                                                            }
+                                                        }).collect_view()
+                                                    }
+                                            </tbody>
+                                            </table>
+                                        </div>
+                                        }.into_any()
                                     }
-                                }
-                            </tbody>
-                            </table>
-                        </div>
+                               }
                     </div>
                 }.into_any()
             }}
@@ -397,6 +406,17 @@ fn mk_jobset_entry(key: &str, value: String) -> impl IntoView {
         </div>
         <div class=style::value>
             <p>{value}</p>
+        </div>
+    }
+}
+
+fn mk_jobset_entry_error(key: &str, value: String) -> impl IntoView {
+    view! {
+        <div class=style::key>
+            <p>{key.to_string()}</p>
+        </div>
+        <div class=style::value>
+            <pre>{value}</pre>
         </div>
     }
 }

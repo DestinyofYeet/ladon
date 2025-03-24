@@ -292,6 +292,7 @@ impl Coordinator {
 
                 let mut diff = JobDiff::new();
                 diff.state = Some(JobState::Building);
+                diff.evaluation_id = Some(evaluation.id.unwrap());
                 let result = job.update_job(&*db, diff).await;
 
                 if result.is_err() {
