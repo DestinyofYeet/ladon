@@ -32,6 +32,12 @@ You also need stylance for the css
 stylance -w ./
 ```
 
+# How to build a release
+```
+cargo slqx prepare --workspace -- --all-targets --all-features
+nix build
+```
+
 ## Idea
 
 1. Call `nix eval flakeUri --json` in order to get json output. For example:

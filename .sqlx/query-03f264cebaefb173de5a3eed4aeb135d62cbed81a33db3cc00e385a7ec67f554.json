@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                insert into Evaluations\n                    (jobset_id)\n                values\n                    (?)\n                returning id\n                \n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "03f264cebaefb173de5a3eed4aeb135d62cbed81a33db3cc00e385a7ec67f554"
+}

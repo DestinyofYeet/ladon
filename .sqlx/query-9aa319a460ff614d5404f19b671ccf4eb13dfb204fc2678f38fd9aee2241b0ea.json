@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                delete from Jobsets\n                where id = ?\n           ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "9aa319a460ff614d5404f19b671ccf4eb13dfb204fc2678f38fd9aee2241b0ea"
+}
