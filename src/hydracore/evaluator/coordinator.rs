@@ -2,7 +2,7 @@ use std::{process::ExitStatus, sync::Arc, time::Duration};
 
 use crate::{
     hydracore::{evaluator::nix::drv::DependencyTree, DBError},
-    models::{Job, JobDiff, JobState, Jobset, JobsetDiff, JobsetState},
+    models::{self, Job, JobDiff, JobState, Jobset, JobsetDiff, JobsetState},
     routes::jobset::trigger_jobset,
     state::State,
 };
@@ -28,6 +28,7 @@ use tokio::{
     time::Sleep,
 };
 use tracing::{debug, error, info, trace, warn};
+use tracing_subscriber::fmt::format::PrettyVisitor;
 
 struct CoordinatorData {
     db: Arc<Mutex<DB>>,
@@ -255,16 +256,6 @@ impl Coordinator {
 
             let mut evaluation = crate::models::Evaluation::new(jobset.id.unwrap());
 
-            let result = evaluation.add_to_db(&db).await;
-
-            if result.is_err() {
-                error!(
-                    "Failed to add evaluation: {}",
-                    result.err().unwrap().to_string()
-                );
-                continue;
-            }
-
             let mut jobs = notification.get_jobs_copy().unwrap();
 
             for job in jobs.iter_mut() {
@@ -281,6 +272,58 @@ impl Coordinator {
                 if job.attribute_name == "" {
                     job.attribute_name = result.name;
                 }
+            }
+
+            let previous_evaluations = models::Evaluation::get_all(&db, jobset.id.unwrap()).await;
+
+            if previous_evaluations.is_err() {
+                error!("Failed to get previous evaluations!");
+                continue;
+            }
+
+            let previous_evaluations = previous_evaluations.unwrap();
+
+            let mut found_same = false;
+
+            for previous_evaluation in previous_evaluations.iter() {
+                let previous_jobs = Job::get_all(&db, previous_evaluation.id.unwrap()).await;
+
+                if previous_jobs.is_err() {
+                    error!("Failed to fetch previous jobs!");
+                    continue;
+                }
+
+                let previous_jobs = previous_jobs.unwrap();
+
+                for prev_job in previous_jobs.iter() {
+                    for job in jobs.iter() {
+                        if prev_job.derivation_path == job.derivation_path {
+                            debug!(
+                                "Skipping creation of new evaluation since nothing has changed!"
+                            );
+                            found_same = true;
+                            break;
+                        }
+                    }
+
+                    if found_same {
+                        break;
+                    }
+                }
+            }
+
+            if found_same {
+                continue;
+            }
+
+            let result = evaluation.add_to_db(&db).await;
+
+            if result.is_err() {
+                error!(
+                    "Failed to add evaluation: {}",
+                    result.err().unwrap().to_string()
+                );
+                continue;
             }
 
             for job in jobs.iter_mut() {
