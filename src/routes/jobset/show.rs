@@ -195,6 +195,7 @@ pub fn Jobset() -> impl IntoView {
     view! {
         <GoBack url=format!("/project/{}", project_id) text="project".to_string()/>
         <Suspense fallback=move || view! {<p>"Loading jobset data..."</p>}>
+        <div class=style::view>
             {move || {
                 let jobset = jobset_data.get();
 
@@ -222,158 +223,157 @@ pub fn Jobset() -> impl IntoView {
                 let jobset = jobset.unwrap();
 
                 view! {
-                    <div class=style::view>
-                        <div class=style::action>
-                            <div class="dropdown">
-                                <div class="title">
-                                    <span>Actions</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-caret-down" viewBox="0 0 16 16">
-                                      <path d="M3.204 5h9.592L8 10.481zm-.753.659 4.796 5.48a1 1 0 0 0 1.506 0l4.796-5.48c.566-.647.106-1.659-.753-1.659H3.204a1 1 0 0 0-.753 1.659"/>
-                                    </svg>
-                                </div>
-                                <div class="dropdown_content">
-                                    <div class="dropdown_group">
-                                        <a href=format!("/project/{}/jobset/{}/edit", project_id, jobset_id)>"Edit jobset"</a>
+            <div class=style::action>
+                <div class="dropdown">
+                    <div class="title">
+                        <span>Actions</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-caret-down" viewBox="0 0 16 16">
+                          <path d="M3.204 5h9.592L8 10.481zm-.753.659 4.796 5.48a1 1 0 0 0 1.506 0l4.796-5.48c.566-.647.106-1.659-.753-1.659H3.204a1 1 0 0 0-.753 1.659"/>
+                        </svg>
+                    </div>
+                    <div class="dropdown_content">
+                        <div class="dropdown_group">
+                            <a href=format!("/project/{}/jobset/{}/edit", project_id, jobset_id)>"Edit jobset"</a>
+                        </div>
+                        <div class="dropdown_group">
+                            <div class="generic_input_form">
+                                <ActionForm action=trigger_jobset_action>
+                                    <div class="inputs">
+                                        <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
+                                        <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
+                                        <input type="submit" value="Trigger jobset"/>
                                     </div>
-                                    <div class="dropdown_group">
-                                        <div class="generic_input_form">
-                                            <ActionForm action=trigger_jobset_action>
-                                                <div class="inputs">
-                                                    <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
-                                                    <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
-                                                    <input type="submit" value="Trigger jobset"/>
-                                                </div>
-                                            </ActionForm>
-                                        </div>
-                                    </div>
-                                    <div class="dropdown_group">
-                                        <div class="generic_input_form">
-                                           <ActionForm action=delete_jobset_action>
-                                                <div class="inputs">
-                                                    <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
-                                                    <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
-                                                    <input type="submit" value="Delete jobset"/>
-                                                </div>
-                                           </ActionForm>
-                                        </div>
-                                    </div>
-                                </div>
+                                </ActionForm>
                             </div>
                         </div>
-                        <div class=style::trigger_result>
-                            {move || {
-                                match trigger_jobset_action.value().get() {
-                                    Some(Err(e)) => {
-                                        let msg = match e {
-                                            ServerFnError::ServerError(msg) => msg,
-                                            _ => e.to_string(),
-                                        };
-
-                                        return view! {
-                                            <p class="failed">"Failed to trigger jobset: "{msg}</p>
-                                        }.into_any();
-                                    },
-
-                                    None => {
-                                        return view! {
-                                        }.into_any();
-                                    }
-
-                                    _ => {
-                                       return view! {
-                                            <p class="success">"Successfully triggered jobset"</p>
-                                       }.into_any();
-                                    }
-                                }
-
-                                match delete_jobset_action.value().get() {
-                                    Some(Err(e)) => {
-                                        let msg = match e {
-                                            ServerFnError::ServerError(msg) => msg,
-                                            _ => e.to_string(),
-                                        };
-
-                                        return view! {
-                                            <p class="failed">"Failed to delete jobset: "{msg}</p>
-                                        }.into_any();
-                                    },
-
-                                    None => return view!{}.into_any(),
-
-                                    _ => return view!{}.into_any(),
-                                }
-                            }}
+                        <div class="dropdown_group">
+                            <div class="generic_input_form">
+                               <ActionForm action=delete_jobset_action>
+                                    <div class="inputs">
+                                        <input type="hidden" name="project_id" value=jobset.project_id.to_string()/>
+                                        <input type="hidden" name="jobset_id" value=jobset.id.unwrap().to_string()/>
+                                        <input type="submit" value="Delete jobset"/>
+                                    </div>
+                               </ActionForm>
+                            </div>
                         </div>
-                        <div class=style::statistics>
-                            {mk_jobset_entry("Name: ", jobset.name)}
-                            {mk_jobset_entry("Description: ", jobset.description)}
-                            {mk_jobset_entry("Flake URI: ", jobset.flake)}
-                            {mk_jobset_entry("Last checked: ", convert_date_to_string(jobset.last_checked))}
-                            {mk_jobset_entry("Last evaluated: ", convert_date_to_string(jobset.last_evaluated))}
-                            {mk_jobset_entry("Check interval (every): ", convert_seconds_to_minutes(jobset.check_interval))}
-                            {mk_jobset_entry("Evaluation took: ", convert_seconds_to_minutes(jobset.evaluation_took.unwrap_or(-1)))}
-                            {mk_jobset_entry("State: ", jobset.state.clone().unwrap_or(JobsetState::Unknown).to_string())}
-                            {
-                                match jobset.state {
-                                    Some(JobsetState::EvalFailed) => mk_jobset_entry_error("Error", jobset.error_message.unwrap()).into_any(),
-                                    _ => view!{}.into_any()
-                                }
-                            }
-                        </div>
-                                {
-                                    let evals = evaluations.get();
-
-                                    if evals.is_none() {
-                                        return mk_error_view("Failed to fetch evaluations!");
-                                    }
-
-                                    let evals = evals.unwrap();
-
-                                    if evals.is_err() {
-                                        return mk_err_view_string(format!("Failed to fetch evaluations: {}", evals.err().unwrap()));
-                                    }
-
-                                    let mut evals = evals.unwrap();
-
-                                    evals.sort_by(|a, b| {
-                                        a.id.cmp(&b.id)
-                                    });
-
-                                    evals.reverse();
-
-                                    if evals.len() == 0 {
-                                        view!{
-                                            <h3>"No builds yet!"</h3>
-                                        }.into_any()
-                                    } else {
-                                        view! {
-
-                                            <h3>"Evaluations"</h3>
-                                            <div class="generic_table">
-                                                <table>
-                                                <tbody>
-                                                    <tr>
-                                                        <th>"#"</th>
-                                                    </tr>
-                                                    {
-                                                        evals.iter().map(|eval| {
-                                                            let id = eval.id.unwrap();
-                                                            view!{
-                                                                <tr>
-                                                                <td><a href=format!("/project/{}/jobset/{}/evaluation/{}", project_id, jobset_id, id) class="left">{id}</a></td>
-                                                                </tr>
-                                                            }
-                                                        }).collect_view()
-                                                    }
-                                            </tbody>
-                                            </table>
-                                        </div>
-                                        }.into_any()
-                                    }
-                               }
                     </div>
+                </div>
+            </div>
+            <div class=style::trigger_result>
+                {move || {
+                    match trigger_jobset_action.value().get() {
+                        Some(Err(e)) => {
+                            let msg = match e {
+                                ServerFnError::ServerError(msg) => msg,
+                                _ => e.to_string(),
+                            };
+
+                            return view! {
+                                <p class="failed">"Failed to trigger jobset: "{msg}</p>
+                            }.into_any();
+                        },
+
+                        None => {
+                            return view! {
+                            }.into_any();
+                        }
+
+                        _ => {
+                           return view! {
+                                <p class="success">"Successfully triggered jobset"</p>
+                           }.into_any();
+                        }
+                    }
+
+                    match delete_jobset_action.value().get() {
+                        Some(Err(e)) => {
+                            let msg = match e {
+                                ServerFnError::ServerError(msg) => msg,
+                                _ => e.to_string(),
+                            };
+
+                            return view! {
+                                <p class="failed">"Failed to delete jobset: "{msg}</p>
+                            }.into_any();
+                        },
+
+                        None => return view!{}.into_any(),
+
+                        _ => return view!{}.into_any(),
+                    }
+                }}
+            </div>
+            <div class=style::statistics>
+                {mk_jobset_entry("Name: ", jobset.name)}
+                {mk_jobset_entry("Description: ", jobset.description)}
+                {mk_jobset_entry("Flake URI: ", jobset.flake)}
+                {mk_jobset_entry("Last checked: ", convert_date_to_string(jobset.last_checked))}
+                {mk_jobset_entry("Last evaluated: ", convert_date_to_string(jobset.last_evaluated))}
+                {mk_jobset_entry("Check interval (every): ", convert_seconds_to_minutes(jobset.check_interval))}
+                {mk_jobset_entry("Evaluation took: ", convert_seconds_to_minutes(jobset.evaluation_took.unwrap_or(-1)))}
+                {mk_jobset_entry("State: ", jobset.state.clone().unwrap_or(JobsetState::Unknown).to_string())}
+                {
+                    match jobset.state {
+                        Some(JobsetState::EvalFailed) => mk_jobset_entry_error("Error", jobset.error_message.unwrap()).into_any(),
+                        _ => view!{}.into_any()
+                    }
+                }
+            </div>
+                    {
+                        let evals = evaluations.get();
+
+                        if evals.is_none() {
+                            return mk_error_view("Failed to fetch evaluations!");
+                        }
+
+                        let evals = evals.unwrap();
+
+                        if evals.is_err() {
+                            return mk_err_view_string(format!("Failed to fetch evaluations: {}", evals.err().unwrap()));
+                        }
+
+                        let mut evals = evals.unwrap();
+
+                        evals.sort_by(|a, b| {
+                            a.id.cmp(&b.id)
+                        });
+
+                        evals.reverse();
+
+                        if evals.len() == 0 {
+                            view!{
+                                <h3>"No builds yet!"</h3>
+                            }.into_any()
+                        } else {
+                            view! {
+
+                                <h3>"Evaluations"</h3>
+                                <div class="generic_table">
+                                    <table>
+                                    <tbody>
+                                        <tr>
+                                            <th>"#"</th>
+                                        </tr>
+                                        {
+                                            evals.iter().map(|eval| {
+                                                let id = eval.id.unwrap();
+                                                view!{
+                                                    <tr>
+                                                    <td><a href=format!("/project/{}/jobset/{}/evaluation/{}", project_id, jobset_id, id) class="left">{id}</a></td>
+                                                    </tr>
+                                                }
+                                            }).collect_view()
+                                        }
+                                </tbody>
+                                </table>
+                            </div>
+                            }.into_any()
+                        }
+                   }
                 }.into_any()
             }}
+        </div>
         </Suspense>
     }
 }
