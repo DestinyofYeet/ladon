@@ -26,6 +26,8 @@ stylance = { version = "0.5.5" }
 futures = "0.3.31"
 async-recursion = "1.1.1"
 uuid = { version = "1.16.0", features = ["v4"], optional = true }
+toml = { version = "0.8.22", optional = true }
+paste = { version = "1.0.15", optional = true }
 
 [features]
 hydrate = [
@@ -45,7 +47,11 @@ ssr = [
     "leptos_meta/ssr",
     "leptos_router/ssr",
     "dep:uuid",
+    "dep:toml",
+    "dep:paste",
 ]
+toml = ["dep:toml"]
+paste = ["dep:paste"]
 # Defines a size-optimized profile for the WASM bundle in release mode
 [profile.wasm-release]
 inherits = "release"

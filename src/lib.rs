@@ -11,6 +11,9 @@ mod components;
 #[cfg(feature = "ssr")]
 pub mod hydracore;
 
+#[cfg(feature = "ssr")]
+pub mod config;
+
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {

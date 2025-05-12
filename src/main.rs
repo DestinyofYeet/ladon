@@ -10,17 +10,23 @@ use clap::Parser;
 struct Args {
     #[arg(short, long = "data-dir", help = "The data directory to use")]
     data_dir: std::path::PathBuf,
-    #[arg(short='v', long, action = clap::ArgAction::Count, help="Sets the verbose level. More v's more output")]
+
+    #[arg(short = 'c', long = "config", help = "Path to the config file")]
+    config: String,
+
+    #[arg(short = 'v', long, action = clap::ArgAction::Count, help="Sets the verbose level. More v's more output")]
     verbose: u8,
 }
 
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
+    use ladon::config;
     use ladon::hydracore;
     use tokio::sync::Mutex;
     use tracing::{error, Level};
     use tracing_subscriber;
+
     let args = Args::parse();
 
     let logger = tracing_subscriber::fmt();
@@ -32,6 +38,11 @@ async fn main() {
     };
 
     logger.init();
+
+    let config = config::Config::parse(&args.config);
+
+    let _username = config.general.get_initial_username();
+    let _password = config.general.get_initial_password();
 
     let path = args.data_dir.join("db.sqlite");
 

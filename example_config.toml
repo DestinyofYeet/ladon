@@ -1,0 +1,7 @@
+[general]
+initial_user = ""
+initial_password = ""
+# or
+initial_user_file = ""
+initial_password_file = ""
+
