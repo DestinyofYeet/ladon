@@ -25,6 +25,7 @@ tracing-subscriber = { version = "0.3.19", optional = true }
 stylance = { version = "0.5.5" }
 futures = "0.3.31"
 async-recursion = "1.1.1"
+uuid = { version = "1.16.0", features = ["v4"], optional = true }
 
 [features]
 hydrate = [
@@ -43,6 +44,7 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
+    "dep:uuid",
 ]
 # Defines a size-optimized profile for the WASM bundle in release mode
 [profile.wasm-release]

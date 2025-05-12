@@ -7,3 +7,4 @@ mod evaluation;
 mod job;
 mod jobset;
 mod project;
+mod users;

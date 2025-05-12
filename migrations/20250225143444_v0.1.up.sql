@@ -49,4 +49,20 @@ create table Jobs (
     foreign key (evaluation_id) 
         references Evaluations(id)
         on delete cascade
-)
+);
+
+create table Users (
+    id integer not null,
+    name varchar(255) not null,
+
+    primary key (id)
+);
+
+create table Users_Tokens (
+    user_id integer not null,
+    token varchar(255) not null,
+
+    foreign key (user_id)
+        references Users(id)
+        on delete cascade
+);
