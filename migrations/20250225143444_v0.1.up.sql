@@ -54,6 +54,7 @@ create table Jobs (
 create table Users (
     id integer not null,
     name varchar(255) not null,
+    passwd_hash text not null,
 
     primary key (id)
 );

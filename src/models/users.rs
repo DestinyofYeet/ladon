@@ -12,6 +12,7 @@ use {
 pub struct User {
     pub id: Option<i32>,
     pub name: String,
+    pub passwd_hash: String,
 }
 
 #[cfg(feature = "ssr")]
@@ -23,12 +24,13 @@ impl User {
         let result = query!(
             "
                 insert into Users
-                    (name)
+                    (name, passwd_hash)
                 values
-                    (?)
+                    (?, ?)
                 returning id
             ",
             self.name,
+            self.passwd_hash
         )
         .fetch_one(&mut *conn)
         .await
@@ -88,6 +90,7 @@ impl User {
         return Ok(Some(User {
             id: Some(result.id as i32),
             name: result.name,
+            passwd_hash: result.passwd_hash,
         }));
     }
     pub fn is_valid(db: &DB, token: String) {}
