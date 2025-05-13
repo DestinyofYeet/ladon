@@ -28,6 +28,7 @@ async-recursion = "1.1.1"
 uuid = { version = "1.16.0", features = ["v4"], optional = true }
 toml = { version = "0.8.22", optional = true }
 paste = { version = "1.0.15", optional = true }
+bcrypt = { version = "0.17.0", optional = true }
 
 [features]
 hydrate = [
@@ -49,9 +50,11 @@ ssr = [
     "dep:uuid",
     "dep:toml",
     "dep:paste",
+    "dep:bcrypt"
 ]
 toml = ["dep:toml"]
 paste = ["dep:paste"]
+bcrypt = ["dep:bcrypt"]
 # Defines a size-optimized profile for the WASM bundle in release mode
 [profile.wasm-release]
 inherits = "release"

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
 use {
     crate::hydracore::{DBError, DB},
+    bcrypt::{hash, verify, DEFAULT_COST},
     sqlx::query,
     uuid::Uuid,
 };
@@ -38,11 +39,11 @@ impl User {
 
         let token = Uuid::new_v4().to_string();
 
-        let result = query!(
+        _ = query!(
             "
                 insert into Users_Tokens
                     (user_id, token)
-                values
+             values
                     (?, ?)
             ",
             result.id,
@@ -94,4 +95,48 @@ impl User {
         }));
     }
     pub fn is_valid(db: &DB, token: String) {}
+
+    pub async fn ensure_user(db: &DB, name: String, password: String) -> Result<(), DBError> {
+        let mut conn = db.get_conn().await?;
+        let result = query!(
+            "
+                select *
+                from Users
+                where name = ?
+            ",
+            name
+        )
+        .fetch_optional(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
+
+        if result.is_some() {
+            // user exists
+            return Ok(());
+        }
+
+        let hashed = hash(password, DEFAULT_COST);
+
+        if hashed.is_err() {
+            panic!("Failed to hash password!");
+        }
+
+        let hashed = hashed.unwrap();
+
+        let _ = query!(
+            "
+                insert into Users
+                    (name, passwd_hash)
+                values
+                    (?, ?)
+            ",
+            name,
+            hashed
+        )
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| DBError::new(e.to_string()))?;
+
+        Ok(())
+    }
 }

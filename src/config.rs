@@ -1,17 +1,19 @@
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::{stderr, Read},
+};
 
 use serde::Deserialize;
 
-// macro_rules! mk_get_value {
-//     ($field:ident, $self:ident) => {
-//         match $self.$field {
-//             Some(value) => value.to_string(),
-//             None => match paste! { $self.[<$field _file>]} {
-//                 None => panic!("Either {} or {}_file must be set!", $field, $field),
-//                 Some(value) => get_file_content(&value).unwrap(),
-//             },
-//         }
-//     };
+// evaluates to
+// pub fn get_initial_username(&self) -> String {
+//     match &self.initial_username {
+//         Some(value) => value.to_string(),
+//         None => match &self.initial_username_file {
+//             None => panic!("Either initial_username or initial_username_file must be set!"),
+//             Some(value) => get_file_content(&value).unwrap(),
+//         },
+//     }
 // }
 
 macro_rules! mk_get_value {
@@ -22,11 +24,14 @@ macro_rules! mk_get_value {
                     match &self.$field {
                         Some(value) => value.to_string(),
                         None => match &self.[<$field _file>] {
-                            None => panic!(
+                            None => {
+                                eprintln!(
                                 "Either {} or {}_file must be set!",
                                 stringify!($field),
                                 stringify!($field)
-                            ),
+                            );
+                                std::process::exit(1);
+                        },
                             Some(path) => get_file_content(path).unwrap(),
                         }
                     }
@@ -60,16 +65,6 @@ pub struct General {
 }
 
 impl General {
-    // pub fn get_initial_username(&self) -> String {
-    //     match &self.initial_username {
-    //         Some(value) => value.to_string(),
-    //         None => match &self.initial_username_file {
-    //             None => panic!("Either initial_username or initial_username_file must be set!"),
-    //             Some(value) => get_file_content(&value).unwrap(),
-    //         },
-    //     }
-    // }
-
     mk_get_value!(initial_username);
     mk_get_value!(initial_password);
 }

@@ -4,7 +4,7 @@ pub mod state;
 
 mod routes;
 
-mod models;
+pub mod models;
 
 mod components;
 

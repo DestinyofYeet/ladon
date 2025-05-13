@@ -1,4 +1,4 @@
-use ladon::state;
+use ladon::{models::User, state};
 
 use std::sync::Arc;
 
@@ -54,6 +54,17 @@ async fn main() {
     }
 
     let db = db.unwrap();
+
+    _ = User::ensure_user(
+        &db,
+        config.general.get_initial_username(),
+        config.general.get_initial_password(),
+    )
+    .await
+    .map_err(|e| {
+        eprintln!("Failed to ensure user: {}", e.to_string());
+        std::process::exit(1);
+    });
 
     let coordinator = hydracore::Coordinator::new(db);
 
