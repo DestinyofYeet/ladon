@@ -1,7 +1,7 @@
 [general]
-initial_user = ""
+initial_username = ""
 initial_password = ""
 # or
-initial_user_file = ""
+initial_username_file = ""
 initial_password_file = ""
 
