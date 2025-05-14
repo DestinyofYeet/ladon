@@ -1,3 +1,4 @@
+use codee::string::FromToStringCodec;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -92,6 +93,8 @@ fn HomePage() -> impl IntoView {
     //    <h1>"Welcome to Leptos!"</h1>
     //    <button on:click=on_click>"Click Me: " {count}</button>
     //}
+
+    // let (auth_cookie, _) = use_cookie::<u32, FromToStringCodec>("auth");
 
     view! {
         <Router>

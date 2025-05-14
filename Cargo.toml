@@ -29,6 +29,8 @@ uuid = { version = "1.16.0", features = ["v4"], optional = true }
 toml = { version = "0.8.22", optional = true }
 paste = { version = "1.0.15", optional = true }
 bcrypt = { version = "0.17.0", optional = true }
+leptos-use = "0.15.7"
+codee = "0.3.0"
 
 [features]
 hydrate = [
